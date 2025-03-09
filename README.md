@@ -7,7 +7,7 @@
 
 ## 概述 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)，简称 `LG`，使用 AI 技术次世代文本翻译器
-- 开箱即用，（几乎）无需设置
+- 开箱即用，（几乎）无需设置，功能的强大，不需要通过繁琐的设置来体现
 - 支持 `中` `英` `日` `韩` `俄` `德` `法` `意` 等 13 种语言的一键互译
 - 支持 `字幕`、`电子书`、`游戏文本` 等多种文本类型与文本格式
 - 支持 `Claude`、`ChatGPT`、`DeepSeek`、`SakuraLLM` 等各种本地或在线接口
@@ -55,6 +55,11 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250309 v0.10.1
+  - 新增 - 自动检查更新
+  - 新增 - 表格支持多选删除与插入操作
+  - 新增 - 字幕、电子书文件在保存时添加语言后缀
+
 - 20250306 v0.10.0
   - 新增 - 支持 Mardown（.md） 文件
   - 调整 - RenPy 兼容性优化

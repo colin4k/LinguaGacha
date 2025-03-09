@@ -10,7 +10,7 @@
 
 ## Overview 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/), abbreviated as `LG`, is an AI-powered next-generation text translator
-- Out of the box, (almost) no setup needed
+- Out of the box, (almost) no setup needed, powerful functionality that doesn't need complicated settings to show it off.
 - Supports one-click translation between 13 languages
   - including `Chinese`, `English`, `Japanese`, `Korean`, `Russian`, `German`, `French`, `Italian`, etc.
 - Supports various text types and formats such as `subtitles`, `e-books`, and `game text`
@@ -59,6 +59,11 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
+- 20250309 v0.10.1
+  - NEW - Automatic update check
+  - NEW - Table support for multiple selection deletion and insertion
+  - NEW - Subtitles and e-book files have a language suffix added when saving
+
 - 20250306 v0.10.0
   - NEW - Added support for Markdown (.md) files
   - OPT - Optimized Ren'Py compatibility
