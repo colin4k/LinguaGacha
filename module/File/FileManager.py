@@ -29,6 +29,12 @@ class FileManager(Base):
     # 匹配 RenPy 文本的规则
     RE_RENPY = re.compile(r"\"(.*?)(?<!\\)\"(?!\")", flags = re.IGNORECASE)
 
+    # 添加用于匹配 Markdown 图片语法的正则表达式
+    RE_MD_IMAGE = re.compile(r"!\[.*?\]\(.*?\)")
+
+    # 修正用于匹配数学公式的正则表达式 - 先匹配双美元符号再匹配单美元符号
+    RE_MATH_FORMULA = re.compile(r"\$\$(.*?)\$\$|\$(.*?)\$", re.DOTALL)
+
     def __init__(self, config: dict) -> None:
         super().__init__()
 
@@ -101,7 +107,27 @@ class FileManager(Base):
 
             # 数据处理
             with open(abs_path, "r", encoding = "utf-8-sig") as reader:
-                for line in [line.removesuffix("\n") for line in reader.readlines()]:
+                lines = [line.removesuffix("\n") for line in reader.readlines()]
+                
+                # 跟踪代码块状态
+                in_code_block = False
+                
+                for line in lines:
+                    # 检查是否是代码块的开始或结束
+                    if line.startswith("```"):
+                        in_code_block = not in_code_block
+                        
+                    # 确定是否应该排除此行（不翻译）
+                    should_exclude = (
+                        in_code_block or                             # 在代码块内
+                        line.startswith("```") or                    # 代码块标记行
+                        line.startswith("!(data:image/jpeg;base64") or  # base64图片数据
+                        self.RE_MD_IMAGE.search(line) is not None or    # 图片语法 ![](...)
+                        self.RE_MATH_FORMULA.search(line) is not None   # 数学公式 $$ ... $$ 或 $ ... $
+                    )
+                    
+                    status = Base.TranslationStatus.EXCLUDED if should_exclude else Base.TranslationStatus.UNTRANSLATED
+                    
                     items.append(
                         CacheItem({
                             "src": line,
@@ -110,6 +136,7 @@ class FileManager(Base):
                             "file_type": CacheItem.FileType.MD,
                             "file_path": rel_path,
                             "text_type": CacheItem.TextType.MD,
+                            "status": status,  # 设置翻译状态
                         })
                     )
 
@@ -328,7 +355,7 @@ class FileManager(Base):
                     lines = [line.strip() for line in chunk.splitlines()]
 
                     # isdecimal
-                    # 字符串中的字符是否全是十进制数字。也就是说，只有那些在数字系统中被认为是“基本”的数字字符（0-9）才会返回 True。
+                    # 字符串中的字符是否全是十进制数字。也就是说，只有那些在数字系统中被认为是"基本"的数字字符（0-9）才会返回 True。
                     # isdigit
                     # 字符串中的字符是否都是数字字符。它不仅检查十进制数字，还包括其他可以表示数字的字符，如数字上标、罗马数字、圆圈数字等。
                     # isnumeric
