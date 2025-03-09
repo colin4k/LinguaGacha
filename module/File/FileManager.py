@@ -24,8 +24,8 @@ class FileManager(Base):
     etree
 
     # EPUB 文件中读取的标签范围
-    EPUB_TAGS = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "div", "li", "td")
-
+    EPUB_TAGS = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li","th","td","div")
+    
     # 匹配 RenPy 文本的规则
     RE_RENPY = re.compile(r"\"(.*?)(?<!\\)\"(?!\")", flags = re.IGNORECASE)
 
@@ -513,25 +513,34 @@ class FileManager(Base):
             shutil.copy(abs_path, f"{output_path}/cache/temp/{rel_path}")
 
             # 数据处理
+            
+
             with zipfile.ZipFile(abs_path, "r") as zip_reader:
-                for path in zip_reader.namelist():
+                
+                for path in [p for p in zip_reader.namelist() if p.lower().endswith((".html", ".xhtml"))]:
                     if path.lower().endswith((".html", ".xhtml")):
                         with zip_reader.open(path) as reader:
                             bs = BeautifulSoup(reader.read().decode("utf-8-sig"), "html.parser")
+
                             for dom in bs.find_all(FileManager.EPUB_TAGS):
                                 # 跳过空标签或嵌套标签
                                 if dom.get_text().strip() == "" or dom.find(FileManager.EPUB_TAGS) != None:
                                     continue
 
-                                # 添加数据
-                                items.append(CacheItem({
-                                    "src": dom.get_text(),
-                                    "dst": dom.get_text(),
-                                    "tag": path,
-                                    "row": len(items),
-                                    "file_type": CacheItem.FileType.EPUB,
-                                    "file_path": rel_path,
-                                }))
+                                # 提取文本 - 保留完整HTML结构
+
+                                # 非导航页：保存整个DOM元素内容
+                                items.append(
+                                    CacheItem({
+                                        "src": str(dom),  # 保存整个带标签的元素内容，包括子标签
+                                        "dst": str(dom),  # 起始时译文与原文相同
+                                        "tag": path,     # 记录标签路径以便后续处理
+                                        "row": len(items),
+                                        "file_type": CacheItem.FileType.EPUB,
+                                        "file_path": rel_path,
+                                    })
+                                )
+                                
                     elif path.lower().endswith(".ncx"):
                         with zip_reader.open(path) as reader:
                             bs = BeautifulSoup(reader.read().decode("utf-8-sig"), "lxml-xml")
@@ -574,7 +583,7 @@ class FileManager(Base):
                 bs = BeautifulSoup(reader.read().decode("utf-8-sig"), "lxml-xml")
                 for dom in bs.find_all("text"):
                     # 跳过空标签
-                    if dom.get_text().strip() == "" == "":
+                    if dom.get_text().strip() == "":
                         continue
 
                     # 处理不同情况
@@ -625,10 +634,15 @@ class FileManager(Base):
                         dom.insert_before("\n")
 
                     # 根据不同类型的页面处理不同情况
-                    if item.get_src() in str(dom):
+                    if is_nav_page == False:
+                        # 直接用翻译后的HTML内容替换整个DOM
+                        # 这里item.get_dst()已经包含了完整的HTML标签结构
+                        new_dom = BeautifulSoup(item.get_dst(), "html.parser")
+                        # 确保解析成功且有内容
+                        if new_dom and len(new_dom.contents) > 0:
+                            dom.replace_with(new_dom)
+                    elif item.get_src() in dom.get_text():
                         dom.replace_with(BeautifulSoup(str(dom).replace(item.get_src(), item.get_dst()), "html.parser"))
-                    elif is_nav_page == False:
-                        dom.string = item.get_dst()
                     else:
                         pass
 

@@ -75,12 +75,12 @@ class ResponseChecker(Base):
                 continue
 
             # 判断是否包含或相似
-            is_similar = src in dst or dst in src or TextHelper.check_similarity_by_Jaccard(src, dst) > 0.80
-
+            #is_similar = src in dst or dst in src or TextHelper.check_similarity_by_Jaccard(src, dst) > 0.80
+            
             # 不包含或相似时，判断为正确翻译
-            if not is_similar:
-                data.append(0)
-            else:
+            #if not is_similar:
+            #    data.append(0)
+            #else:
                 # 日翻中时，只有译文至少包含一个平假名或片假名字符时，才判断为错误翻译（漏翻）
                 if self.source_language == Base.Language.JA and self.target_language == Base.Language.ZH:
                     if TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst):
