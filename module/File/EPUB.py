@@ -17,7 +17,7 @@ class EPUB(Base):
     etree
 
     # EPUB 文件中读取的标签范围
-    EPUB_TAGS = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "div", "li", "td")
+    EPUB_TAGS = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "div", "li", "td","th","dt","dd")
 
     def __init__(self, config: dict) -> None:
         super().__init__()
@@ -61,14 +61,14 @@ class EPUB(Base):
                                 if dom.get_text().strip() == "" or dom.find(EPUB.EPUB_TAGS) != None:
                                     continue
 
-                                # 添加数据
+                                # 提取文本 - 保留完整HTML结构
                                 items.append(CacheItem({
-                                    "src": dom.get_text(),
-                                    "dst": dom.get_text(),
-                                    "tag": path,
-                                    "row": len(items),
-                                    "file_type": CacheItem.FileType.EPUB,
-                                    "file_path": rel_path,
+                                     "src": str(dom),  # 保存整个带标签的元素内容，包括子标签
+                                        "dst": str(dom),  # 起始时译文与原文相同
+                                        "tag": path,     # 记录标签路径以便后续处理
+                                        "row": len(items),
+                                        "file_type": CacheItem.FileType.EPUB,
+                                        "file_path": rel_path,
                                 }))
                     elif path.lower().endswith(".ncx"):
                         with zip_reader.open(path) as reader:
@@ -166,7 +166,12 @@ class EPUB(Base):
                     if item.get_src() in str(dom):
                         dom.replace_with(BeautifulSoup(str(dom).replace(item.get_src(), item.get_dst()), "html.parser"))
                     elif is_nav_page == False:
-                        dom.string = item.get_dst()
+                        # 直接用翻译后的HTML内容替换整个DOM
+                        # 这里item.get_dst()已经包含了完整的HTML标签结构
+                        new_dom = BeautifulSoup(item.get_dst(), "html.parser")
+                         # 确保解析成功且有内容
+                        if new_dom and len(new_dom.contents) > 0:
+                            dom.replace_with(new_dom)
                     else:
                         pass
 

@@ -39,7 +39,7 @@ class RuleFilter():
 
     RE_ALL = (
         r"^EV\d+$",
-        r"^<.+:.+>$",
+        #r"^<.+:.+>$",
         r"^\{#file_time\}",                     # RenPy 存档时间
         r"^DejaVu Sans$",                       # RenPy 默认字体名称
         r"^Opendyslexic$",                      # RenPy 默认字体名称
