@@ -75,7 +75,7 @@ class ResponseChecker(Base):
                 continue
 
             # 判断是否包含或相似
-            #is_similar = src in dst or dst in src or TextHelper.check_similarity_by_Jaccard(src, dst) > 0.80
+            #is_similar = src in dst or dst in src or TextHelper.check_similarity_by_jaccard(src, dst) > 0.80
 
             # 不包含或相似时，判断为正确翻译
             #if not is_similar:

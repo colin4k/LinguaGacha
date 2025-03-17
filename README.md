@@ -32,9 +32,10 @@
 
 ## 基本流程 🛸
 - 从 [发布页](https://github.com/neavo/LinguaGacha/releases) 下载应用
-- 获取一个可靠的 AI 大模型接口，建议以下两种选择其一：
-  - [本地接口 - 点击查看教程](https://github.com/neavo/OneClickLLAMA)，免费，需至少 8G 显存的独立显卡，Nvidia 显卡为佳
-  - [DeepSeek - 点击查看教程](https://github.com/neavo/LinguaGacha/wiki/DeepSeek)，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 推荐`
+- 获取一个可靠的 AI 大模型接口，建议选择其一：
+  - [ [本地接口](https://github.com/neavo/OneClickLLAMA) ]，免费，需至少 8G 显存的独立显卡，Nvidia 显卡为佳
+  - [ [火山引擎](https://github.com/neavo/LinguaGacha/wiki/VolcEngine) ]，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 推荐`
+  - [ [DeepSeek](https://github.com/neavo/LinguaGacha/wiki/DeepSeek) ]，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 推荐`
 - 准备要翻译的文本
   - `字幕`、`电子书` 等一般不需要预处理
   - `游戏文本` 需要根据游戏引擎选择合适的工具进行提取
@@ -44,13 +45,13 @@
 
 ## 使用教程 📝
 - 图文教程
-  - [基础教程](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial) `👈👈 手把手教学，有手就行，新手必看`
+  - [基础教程](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 手把手教学，有手就行，新手必看`
 - 视频教程
-  - [RenPy 引擎游戏 AI 汉化视频教程（中文）](https://space.bilibili.com/631729629/lists/4832968)
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
-- 功能说明
-  - [术语表](https://github.com/neavo/LinguaGacha/wiki/%E6%9C%AF%E8%AF%AD%E8%A1%A8)　　[译前替换](https://github.com/neavo/LinguaGacha/wiki/%E8%AF%91%E5%89%8D%E6%9B%BF%E6%8D%A2)　　[译后替换](https://github.com/neavo/LinguaGacha/wiki/%E8%AF%91%E5%90%8E%E6%9B%BF%E6%8D%A2)
-  - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+- 进阶教程
+  - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+  - [高质量翻译 RenPy 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRenPy)
+  - [高质量翻译 RPGMaker 系列引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
 
 ## 文本格式 🏷️
@@ -59,39 +60,49 @@
   - 电子书（.txt .epub）
   - Markdown（.md）
   - [RenPy](https://www.renpy.org) 导出游戏文本（.rpy）
-  - [MTool](https://afdian.com/a/AdventCirno) 导出游戏文本（.json）
+  - [MTool](https://mtool.app) 导出游戏文本（.json）
   - [SExtractor](https://github.com/satan53x/SExtractor) 导出游戏文本（.txt .json .xlsx）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 导出游戏文本（.xlsx）
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250316 v0.14.0
+  - 翻译质量提升专题版本
+    - 新增 - 结果检查增加 `假名`、`谚文` 的残留检查
+    - 调整 - 进一步提升了代码保留的能力
+    - 调整 - 显著提升了翻译质量，特别是语气词与专有名词的翻译
+      - 特别推荐所有火山引擎 DeepSeek 用户升级至此版本
+
+- 20250316 v0.13.2
+  - 修正 - TRANS 文件中部分游戏引擎类型识别无法识别的问题
+
+- 20250316 v0.13.1
+  - 调整 - 增加了新的清理规则
+    - 注音代码 `<Ruby>`
+  - 调整 - 部分重翻支持 RENPY 文件
+  - 修正 - 部分翻译时 EPUB 不能正确输出双语的问题
+
+- 20250315 v0.13.0
+  - 新增 - 部分重翻 功能
+    - 根据设置的筛选条件，重新对已完成的翻译文本中的部分内容进行翻译
+    - 主要用于 字幕、电子书 等的内容更新或错误修正
+
+- 20250313 v0.12.3
+  - 调整 - 如果 .trans 文件中的数据条目包含 水蓝色 标签，则强制重新翻译
+  - 修正 - 部分 .trans 文件上的兼容性问题
+
 - 20250312 v0.12.2
   - 调整 - 显著降低了并发任务数较高（>=128）时的性能消耗
   - 调整 - 翻译 .trans 文件时，细化粒度以区分不同地址的相同文本条目
   - 修正 - 修复了一些可能导致翻译时卡住的问题
 
-- 20250311 v0.12.1
-  - 调整 - 更新默认提示词与文本过滤规则
-    - 加强代码保留能力
-    - 减少正常文本被错判为代码导致的漏翻问题（常见于 R1）
-
-- 20250310 v0.12.0
-  - 新增 - 直接翻译 Translator 项目文件（.trans） `重磅 👈👈`
-    - 此模式下，对于大部分 RPGMaker MV/MZ 游戏而言
-      - 不需要任何预处理与后处理，翻译后直接导出即可开玩
-    - 对于剩下的少量复杂游戏或者追求完美体验的高级用户，也可以极大的减少精校的工作量
-    - 游戏汉化的新时代已经到来！
-
-- 20250310 v0.11.1
-  - 新增 - 智能携带参考上文功能
-    - 自动分析上文内容是否语义连贯、是否适宜携带
-    - 在提供更多语义信息的同时，避免出现文本错位等翻译错误
-
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系
-  - `LinguaGacha` 是吸取了 `AiNiee` 的经验以后开发的全新的翻译器应用
-  - `LinguaGacha` 的作者也是 `AiNiee v5` 的主要开发与维护者之一
+  - `LinguaGacha` 的作者是 `AiNiee v5` 的主要开发与维护者之一
+  - `AiNiee v5` 及延用至 `AiNiee v6` 版的 UI 框架是由作者设计和主要负责开发的
+  - 这也是两者 UI 相似的原因，因为作者已经没有灵感再重新设计一套了，求放过 🤣
+  - 但是，`LinguaGacha` 并不是 `AiNiee` 的分支版本，而是在其经验上开发的全新翻译器应用
 
 ## 问题反馈 😥
 - 运行时的日志保存在应用根目录下的 `log` 等文件夹

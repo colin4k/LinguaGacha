@@ -10,16 +10,15 @@ import httpx
 from tqdm import tqdm
 
 from base.Base import Base
-from module.File.FileChecker import FileChecker
 from module.File.FileManager import FileManager
-from module.Filter.LanguageFilter import LanguageFilter
 from module.Cache.CacheItem import CacheItem
 from module.Cache.CacheManager import CacheManager
 from module.Filter.RuleFilter import RuleFilter
-from module.CodeSaver import CodeSaver
+from module.Filter.LanguageFilter import LanguageFilter
 from module.Localizer.Localizer import Localizer
 from module.Translator.TranslatorTask import TranslatorTask
 from module.PromptBuilder import PromptBuilder
+from module.ResultChecker import ResultChecker
 
 # 翻译器
 class Translator(Base):
@@ -28,7 +27,7 @@ class Translator(Base):
         super().__init__()
 
         # 初始化
-        self.cache_manager = CacheManager()
+        self.cache_manager = CacheManager(tick = True)
 
         # 线程锁
         self.data_lock = threading.Lock()
@@ -37,17 +36,17 @@ class Translator(Base):
         self.subscribe(Base.Event.TRANSLATION_STOP, self.translation_stop)
         self.subscribe(Base.Event.TRANSLATION_START, self.translation_start)
         self.subscribe(Base.Event.TRANSLATION_MANUAL_EXPORT, self.translation_manual_export)
-        self.subscribe(Base.Event.TRANSLATION_PROJECT_STATUS, self.translation_project_status_check)
+        self.subscribe(Base.Event.PROJECT_STATUS, self.translation_project_status_check)
         self.subscribe(Base.Event.APP_SHUT_DOWN, self.app_shut_down)
 
     # 应用关闭事件
     def app_shut_down(self, event: int, data: dict) -> None:
-        Base.WORK_STATUS = Base.Status.STOPING
+        Base.WORK_STATUS = Base.Status.STOPPING
 
     # 翻译停止事件
     def translation_stop(self, event: int, data: dict) -> None:
         # 设置运行状态为停止中
-        Base.WORK_STATUS = Base.Status.STOPING
+        Base.WORK_STATUS = Base.Status.STOPPING
 
         def target() -> None:
             while True:
@@ -56,6 +55,9 @@ class Translator(Base):
                     self.print("")
                     self.info(Localizer.get().translator_stop)
                     self.print("")
+
+                    # 设置运行状态
+                    Base.WORK_STATUS = Base.Status.IDLE
                     self.emit(Base.Event.TRANSLATION_STOP_DONE, {})
                     break
 
@@ -63,10 +65,16 @@ class Translator(Base):
 
     # 翻译开始事件
     def translation_start(self, event: int, data: dict) -> None:
-        threading.Thread(
-            target = self.translation_start_target,
-            args = (data.get("status"), ),
-        ).start()
+        if Base.WORK_STATUS != Base.Status.IDLE:
+            self.emit(Base.Event.APP_TOAST_SHOW, {
+                "type": Base.ToastType.WARNING,
+                "message": Localizer.get().translator_running,
+            })
+        else:
+            threading.Thread(
+                target = self.translation_start_target,
+                args = (data.get("status"), ),
+            ).start()
 
     # 翻译结果手动导出事件
     def translation_manual_export(self, event: int, data: dict) -> None:
@@ -99,11 +107,11 @@ class Translator(Base):
 
         # 只有翻译状态为 无任务 时才执行检查逻辑，其他情况直接返回默认值
         if Base.WORK_STATUS == Base.Status.IDLE:
-            cache_manager = CacheManager()
+            cache_manager = CacheManager(tick = False)
             cache_manager.load_project_from_file(self.load_config().get("output_folder"))
             status = cache_manager.get_project().get_status()
 
-        self.emit(Base.Event.TRANSLATION_PROJECT_STATUS_CHECK_DONE, {
+        self.emit(Base.Event.PROJECT_STATUS_CHECK_DONE, {
             "status" : status,
         })
 
@@ -141,7 +149,7 @@ class Translator(Base):
 
         # 检查数据是否为空
         if self.cache_manager.get_item_count() == 0:
-            self.emit(Base.Event.TOAST_SHOW, {
+            self.emit(Base.Event.APP_TOAST_SHOW, {
                 "type": Base.ToastType.WARNING,
                 "message": Localizer.get().translator_no_items,
             })
@@ -175,10 +183,11 @@ class Translator(Base):
         # 开始循环
         for current_round in range(self.config.get("max_round") + 1):
             # 检测是否需要停止任务
-            if Base.WORK_STATUS == Base.Status.STOPING:
+            if Base.WORK_STATUS == Base.Status.STOPPING:
                 # 循环次数比实际最大轮次要多一轮，当触发停止翻译的事件时，最后都会从这里退出任务
                 # 执行到这里说明停止翻译的任务已经执行完毕，可以重置内部状态了
                 self.translating = False
+                Base.WORK_STATUS = Base.Status.IDLE
                 return None
 
             # 获取 待翻译 状态的条目数量
@@ -210,6 +219,10 @@ class Translator(Base):
 
             # 生成缓存数据条目片段
             chunks, preceding_chunks = self.cache_manager.generate_item_chunks(self.config.get("task_token_limit"))
+
+            # 仅在第一轮启用参考上文功能
+            if current_round > 0:
+                preceding_chunks = [[] for _ in range(len(preceding_chunks))]
 
             # 生成翻译任务
             tasks: list[TranslatorTask] = []
@@ -263,6 +276,7 @@ class Translator(Base):
 
         # 重置内部状态（正常完成翻译）
         self.translating = False
+        Base.WORK_STATUS = Base.Status.IDLE
 
         # 触发翻译停止完成的事件
         self.emit(Base.Event.TRANSLATION_STOP_DONE, {})
@@ -392,34 +406,16 @@ class Translator(Base):
                 dst = item.get_dst()
                 if src.count("\n") > 0:
                     for src_line, dst_line in zip_longest(src.splitlines(), dst.splitlines(), fillvalue = ""):
-                        items.append(
-                            CacheItem({
-                                "src" : src_line.strip(),
-                                "dst" : dst_line.strip(),
-                                "extra_field" : item.get_extra_field(),
-                                "tag" : item.get_tag(),
-                                "row" : len(items_by_file_path),
-                                "file_type" : item.get_file_type(),
-                                "file_path" : item.get_file_path(),
-                                "status" : item.get_status(),
-                            })
-                        )
+                        item_ex = CacheItem(item.get_vars())
+                        item_ex.set_src(src_line.strip())
+                        item_ex.set_dst(dst_line.strip())
+                        item_ex.set_row(len(items_by_file_path))
+                        items.append(item_ex)
 
     # 检查结果并写入文件
     def check_and_wirte_result(self, items: list[CacheItem]) -> None:
-        # 清理一下
-        os.makedirs(self.config.get("output_folder"), exist_ok = True)
-        [
-            os.remove(entry.path)
-            for entry in os.scandir(self.config.get("output_folder"))
-            if entry.is_file() and entry.name.startswith(("结果检查_", "result_check_"))
-        ]
-
         # 检查结果
-        result_check = FileChecker(self.config, items)
-        result_check.check_code(Localizer.get().path_result_check_code, CodeSaver())
-        result_check.check_glossary(Localizer.get().path_result_check_glossary)
-        result_check.check_untranslated(Localizer.get().path_result_check_untranslated)
+        ResultChecker(self.config, items).check()
 
         # 写入文件
         FileManager(self.config).write_to_path(items)
@@ -442,22 +438,22 @@ class Translator(Base):
                 if result.get("check_flag") != None:
                     # 任务成功
                     new = {}
-                    new["start_time"] = self.extras.get("start_time")
-                    new["total_line"] = self.extras.get("total_line")
-                    new["line"] = self.extras.get("line")
-                    new["token"] = self.extras.get("token") + result.get("prompt_tokens", 0) + result.get("completion_tokens", 0)
-                    new["total_completion_tokens"] = self.extras.get("total_completion_tokens")
-                    new["time"] = time.time() - self.extras.get("start_time")
+                    new["start_time"] = self.extras.get("start_time", 0)
+                    new["total_line"] = self.extras.get("total_line", 0)
+                    new["line"] = self.extras.get("line", 0)
+                    new["token"] = self.extras.get("token", 0) + result.get("prompt_tokens", 0) + result.get("completion_tokens", 0)
+                    new["total_completion_tokens"] = self.extras.get("total_completion_tokens", 0)
+                    new["time"] = time.time() - self.extras.get("start_time", 0)
                     self.extras = new
                 else:
                     # 任务失败
                     new = {}
-                    new["start_time"] = self.extras.get("start_time")
-                    new["total_line"] = self.extras.get("total_line")
-                    new["line"] = self.extras.get("line") + result.get("row_count", 0)
-                    new["token"] = self.extras.get("token") + result.get("prompt_tokens", 0) + result.get("completion_tokens", 0)
-                    new["total_completion_tokens"] = self.extras.get("total_completion_tokens") + result.get("completion_tokens")
-                    new["time"] = time.time() - self.extras.get("start_time")
+                    new["start_time"] = self.extras.get("start_time", 0)
+                    new["total_line"] = self.extras.get("total_line", 0)
+                    new["line"] = self.extras.get("line", 0) + result.get("row_count", 0)
+                    new["token"] = self.extras.get("token", 0) + result.get("prompt_tokens", 0) + result.get("completion_tokens", 0)
+                    new["total_completion_tokens"] = self.extras.get("total_completion_tokens", 0) + result.get("completion_tokens", 0)
+                    new["time"] = time.time() - self.extras.get("start_time", 0)
                     self.extras = new
 
             # 更新翻译进度

@@ -1,6 +1,6 @@
 class TextBase:
 
-    # 汉字字符
+    # 汉字字符（剔除全角标点符号）
     CJK_SET = {
         chr(c)
         for start, end in (
@@ -12,20 +12,23 @@ class TextBase:
             (0x2B820, 0x2CEAF),                         # 扩展E区
         )
         for c in range(start, end + 1)
+        if not (0xFF01 <= c <= 0xFF60 or 0x3000 <= c <= 0x303F)  # 排除全角标点符号
     }
 
-    # 拉丁字符
+    # 拉丁字符（剔除半角标点符号）
     LATIN_SET = {
         chr(c)
         for start, end in (
-            (0x0020, 0x00FF),                           # 从 \u0020 开始，排除控制字符
-            (0x0100, 0x017F),                           # 拉丁扩展-A 区（包括带有重音的字母）
-            (0x0180, 0x024F),                           # 拉丁扩展-B 区（更多带有重音和其他变体的字母）
+            (0x0041, 0x005A),                           # 大写字母 A-Z
+            (0x0061, 0x007A),                           # 小写字母 a-z
+            (0x00C0, 0x00FF),                           # 拉丁扩展字符
+            (0x0100, 0x017F),                           # 拉丁扩展-A 区
+            (0x0180, 0x024F),                           # 拉丁扩展-B 区
         )
         for c in range(start, end + 1)
     }
 
-    # 谚文字符
+    # 谚文字符（剔除全角标点符号）
     HANGUL_SET = {
         chr(c)
         for start, end in (
@@ -36,18 +39,24 @@ class TextBase:
             (0x3130, 0x318F),                           # 韩文兼容字母 (Hangul Compatibility Jamo)
         )
         for c in range(start, end + 1)
+        if not (0xFF01 <= c <= 0xFF60 or 0x3000 <= c <= 0x303F)  # 排除全角标点符号
     }
 
-    # 平假名
+    # 平假名（剔除全角标点符号）
     HIRAGANA_SET = {
         chr(c)
         for start, end in (
             (0x3040, 0x309F),                           # 平假名
         )
         for c in range(start, end + 1)
+        if not (
+            0xFF01 <= c <= 0xFF60                       # 排除全角标点符号
+            or 0x3000 <= c <= 0x303F                    # 排除全角标点符号
+            or c in (0x309B, 0x309C)                    # 排除 0x309B 濁点 ゛ 0x309C 半濁点 ゜
+        )
     }
 
-    # 片假名
+    # 片假名（剔除全角标点符号）
     KATAKANA_SET = {
         chr(c)
         for start, end in (
@@ -56,15 +65,11 @@ class TextBase:
             (0x31F0, 0x31FF),                          # 片假名语音扩展
         )
         for c in range(start, end + 1)
-    }
-
-    # 濁音和半浊音符号 (Japanese Voiced Sound Marks)
-    JA_VOICED_SOUND_MARKS_SET = {
-        chr(0x309B),                                    # 濁点
-        chr(0x309C),                                    # 半濁点
-        chr(0x3005),                                    # 日文迭代标记 (々) - 汉字迭代 (虽然不完全是假名，但在日语文本处理中常见)
-        chr(0x30FD),                                    # 平假名迭代标记 (ゝ)
-        chr(0x30FE),                                    # 平假名浊音迭代标记 (ゞ)
+        if not (
+            0xFF01 <= c <= 0xFF60                       # 排除全角标点符号
+            or 0x3000 <= c <= 0x303F                    # 排除全角标点符号
+            or c == 0x30FB                              # 排除中点 ・
+        )
     }
 
     # 俄文字符
@@ -195,7 +200,7 @@ class JA(TextBase):
         return all(self.katakana(c) for c in text)
 
     def char(self, c: str) -> bool:
-        return self.CJK.char(c) or self.hiragana(c) or self.katakana(c) or c in TextBase.JA_VOICED_SOUND_MARKS_SET
+        return self.CJK.char(c) or self.hiragana(c) or self.katakana(c)
 
 # 韩文
 class KO(TextBase):

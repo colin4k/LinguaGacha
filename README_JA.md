@@ -10,7 +10,7 @@
 
 ## 概要 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)、略して `LG` は、AIを活用した次世代のテキスト翻訳ツールです
-- 箱出しですぐ使えて、（ほぼ）設定いらず。
+- 箱から出してすぐに使え、（ほぼ）設定不要。機能の強力さは、煩雑な設定を必要としません。
 - `中国語`、`英語`、`日本語`、`韓国語`、`ロシア語`、`ドイツ語`、`フランス語`、`イタリア語`など13言語にワンタッチ双方向翻訳対応。
 - `字幕`、`電子書籍`、`ゲームテキストなど`、色々なテキストタイプと形式に対応。
 - `Claude`、`ChatGPT`、`DeepSeek`、`SakuraLLM` などのローカルおよびオンラインインターフェースをサポート
@@ -46,12 +46,13 @@
   - 入力フォルダ（デフォルト：`input`）にファイルをコピーし、`翻訳開始` で翻訳を開始
 
 ## 使い方チュートリアル 📝
-- 総合チュートリアル
-  - [Ren'Pyエンジンゲーム AI翻訳 ビデオチュートリアル（中国語）](https://space.bilibili.com/631729629/lists/4832968)
-  - [LinguaGachaとTranslator++を使ったRPGMV翻訳方法（英語）](https://www.youtube.com/watch?v=wtV_IODzi8I)
-- 機能説明
-  - [用語集](https://github.com/neavo/LinguaGacha/wiki/%E6%9C%AF%E8%AF%AD%E8%A1%A8)　　[翻訳前置換](https://github.com/neavo/LinguaGacha/wiki/%E8%AF%91%E5%89%8D%E6%9B%BF%E6%8D%A2)　　[翻訳後置換](https://github.com/neavo/LinguaGacha/wiki/%E8%AF%91%E5%90%8E%E6%9B%BF%E6%8D%A2)
-  - [MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+- 図解チュートリアル
+  - [Basic Tutorial](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 手取り足取り教えるよ！手があればOK！初心者さん見てね！`
+- 動画チュートリアル
+  - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
+- 上級チュートリアル
+  - [用語集](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[テキスト置換](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)
+  - [RPGMakerシリーズのゲームにおける高品質翻訳のベストプラクティス](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
 - 詳細なガイドは [Wiki](https://github.com/neavo/LinguaGacha/wiki) を参照するか、[Discussions](https://github.com/neavo/LinguaGacha/discussions) で経験を共有
 
 ## 対応フォーマット 🏷️
@@ -60,7 +61,7 @@
   - 電子書籍 (.txt .epub)
   - Markdown（.md）
   - [RenPy](https://www.renpy.org) エクスポート (.rpy)
-  - [MTool](https://afdian.com/a/AdventCirno) エクスポート (.json)
+  - [MTool](https://mtool.app) エクスポート (.json)
   - [SExtractor](https://github.com/satan53x/SExtractor) エクスポート (.txt .json .xlsx)
   - [Translator++](https://dreamsavior.net/translator-plusplus) プロジェクト (.trans)
   - [Translator++](https://dreamsavior.net/translator-plusplus) エクスポート (.xlsx)
@@ -68,8 +69,9 @@
 
 ## FAQ 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) と [AiNiee](https://github.com/NEKOparapa/AiNiee) の関係
-  - `LinguaGacha` は `AiNiee` の教訓を取り入れて完全に書き直されたものです
-  - `LinguaGacha` の開発者は `AiNiee v5` の主要な貢献者でした
+  - `LinguaGacha` の作者は `AiNiee v5` の主要な開発およびメンテナンス担当者の一人です
+  - `LinguaGacha` は `AiNiee` の派生ではなく、`AiNiee` の経験を基に開発された、よりシンプルで強力な、全く新しい翻訳アプリです
+  - よりシンプルに、よりパワフルに。機能の強力さは、煩雑な設定を必要としません。
 
 ## サポート 😥
 - 実行時のログは `log` フォルダに保存されます

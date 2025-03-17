@@ -7,9 +7,24 @@ class PromptBuilder(Base):
     FAKE_REPLY_ZH = "我完全理解了翻译任务的要求，我将遵循您的指示进行翻译，以下是对原文的翻译："
     FAKE_REPLY_EN = "I fully understand the requirements of the translation task, and I will follow your instructions to translate. Here is the translation of the original text:"
 
-	# 目标语言映射
-    TARGET_LANGUAGE_MAPPING = {
+	# 语言文本映射
+    LANGUAGE_MAPPING_ZH = {
         Base.Language.ZH : "中文",
+        Base.Language.EN : "英文",
+        Base.Language.JA : "日文",
+        Base.Language.KO : "韩文",
+        Base.Language.RU : "俄文",
+        Base.Language.DE : "德文",
+        Base.Language.FR : "法文",
+        Base.Language.ES : "西班牙",
+        Base.Language.IT : "意大利文",
+        Base.Language.PT : "葡萄牙文",
+        Base.Language.TH : "泰文",
+        Base.Language.ID : "印尼文",
+        Base.Language.VI : "越南文",
+    }
+    LANGUAGE_MAPPING_EN = {
+        Base.Language.ZH : "Chinese",
         Base.Language.EN : "English",
         Base.Language.JA : "Japanese",
         Base.Language.KO : "Korean",
@@ -24,15 +39,12 @@ class PromptBuilder(Base):
         Base.Language.VI : "Vietnamese",
     }
 
-    # 代码示例文本
-    CODE_SAMPLE_ZH = "，特别是 {code_sample} 形式的代码段"
-    CODE_SAMPLE_EN = ", especially code segments in the format of {code_sample} "
-
     def __init__(self, config: dict) -> None:
         super().__init__()
 
         # 初始化
         self.config = config
+        self.source_language = config.get("source_language")
         self.target_language = config.get("target_language")
         self.auto_glossary_enable = config.get("auto_glossary_enable")
         self.glossary_data = config.get("glossary_data")
@@ -70,8 +82,12 @@ class PromptBuilder(Base):
         # 判断提示词语言
         if self.target_language == Base.Language.ZH:
             prompt_language = Base.Language.ZH
+            source_language = PromptBuilder.LANGUAGE_MAPPING_ZH.get(self.source_language)
+            target_language = PromptBuilder.LANGUAGE_MAPPING_ZH.get(self.target_language)
         else:
             prompt_language = Base.Language.EN
+            source_language = PromptBuilder.LANGUAGE_MAPPING_EN.get(self.source_language)
+            target_language = PromptBuilder.LANGUAGE_MAPPING_EN.get(self.target_language)
 
         self.get_base(prompt_language)
         self.get_prefix(prompt_language)
@@ -86,28 +102,27 @@ class PromptBuilder(Base):
         else:
             base = self.base
 
-        # 添加或移除代码示例文本
+        # 添加代码示例文本
         extra_log = ""
         if len(samples) > 0:
             if prompt_language == Base.Language.ZH:
                 base = base.replace(
-                    "但其中的非英文文本词语需要翻译。",
-                    f"特别是 {"、".join(samples)} 形式的代码段，"
-                    f"但其中的非英文文本词语需要翻译。",
+                    "在译文中应原样保留。",
+                    f"在译文中应原样保留，特别是 {"、".join(samples)} 形式的代码段。",
                 )
                 extra_log = f"已添加代码示例：\n{"、".join(samples)}"
             elif len(samples) == 1:
                 base = base.replace(
-                    "However, translate any non-English words that appear within these elements.",
-                    f"especially code segments in the format of {samples[0]}. "
-                    f"However, translate any non-English words that appear within these elements.",
+                    "should be preserved in the translation as-is.",
+                    f"should be preserved in the translation as-is, "
+                    f"especially code segments in the format of {samples[0]}.",
                 )
                 extra_log = f"Code samples added:\n{samples[0]}"
             elif len(samples) >= 2:
                 base = base.replace(
-                    "However, translate any non-English words that appear within these elements.",
-                    f"especially code segments in the format of {f"{", ".join(samples[:-1])} and {samples[-1]}"}. "
-                    f"However, translate any non-English words that appear within these elements.",
+                    "should be preserved in the translation as-is.",
+                    f"should be preserved in the translation as-is, "
+                    f"especially code segments in the format of {f"{", ".join(samples[:-1])} and {samples[-1]}"}.",
                 )
                 extra_log = f"Code samples added:\n{f"{", ".join(samples[:-1])} and {samples[-1]}"}"
 
@@ -117,10 +132,12 @@ class PromptBuilder(Base):
         else:
             suffix = self.suffix_glossary
 
-        return (
-            (self.prefix + "\n" + base + "\n" + suffix).replace("{target_language}", PromptBuilder.TARGET_LANGUAGE_MAPPING.get(self.target_language)),
-            extra_log,
-        )
+        # 组装提示词
+        full_prompt = self.prefix + "\n" + base + "\n" + suffix
+        full_prompt = full_prompt.replace("{source_language}", source_language)
+        full_prompt = full_prompt.replace("{target_language}", target_language)
+
+        return full_prompt, extra_log
 
     # 构造参考上文
     def build_preceding(self, preceding_items: list[CacheItem]) -> str:

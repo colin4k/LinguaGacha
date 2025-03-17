@@ -56,6 +56,24 @@ class RENPY(Base):
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
+
+        def get_dst(start: int, lines: list[str]) -> str:
+            # 越界检查
+            if start >= len(lines):
+                return ""
+
+            # 遍历剩余行寻找目标数据
+            for line in lines[start:]:
+                results: list[str] = RENPY.RE_RENPY.findall(line)
+                is_content_line = line.startswith("    # ") or line.startswith("    old ")
+
+                if is_content_line == False and len(results) == 1:
+                    return results[0]
+                elif is_content_line == False and len(results) >= 2:
+                    return results[1]
+
+            return ""
+
         items = []
         for abs_path in set(abs_paths):
             # 获取相对路径
@@ -63,9 +81,9 @@ class RENPY(Base):
 
             # 数据处理
             with open(abs_path, "r", encoding = "utf-8-sig") as reader:
-                lines = [line.removesuffix("\n") for line in reader.readlines()]
+                lines = [line.rstrip() for line in reader.readlines()]
 
-            for line in lines:
+            for i, line in enumerate(lines):
                 results: list[str] = RENPY.RE_RENPY.findall(line)
                 is_content_line = line.startswith("    # ") or line.startswith("    old ")
 
@@ -73,24 +91,42 @@ class RENPY(Base):
                 if is_content_line == False and len(results) > 0:
                     continue
                 elif is_content_line == True and len(results) == 1:
-                    content = results[0].replace("\\n", "\n").replace("\\\"", "\"")
+                    src = results[0].replace("\\n", "\n").replace("\\\"", "\"")
+                    dst = get_dst(i + 1, lines)
                 elif is_content_line == True and len(results) >= 2:
-                    content = results[1].replace("\\n", "\n").replace("\\\"", "\"")
+                    src = results[1].replace("\\n", "\n").replace("\\\"", "\"")
+                    dst = get_dst(i + 1, lines)
                 else:
-                    content = ""
+                    src = ""
+                    dst = ""
 
                 # 添加数据
-                items.append(
-                    CacheItem({
-                        "src": content,
-                        "dst": content,
-                        "extra_field": line,
-                        "row": len(items),
-                        "file_type": CacheItem.FileType.RENPY,
-                        "file_path": rel_path,
-                        "text_type": CacheItem.TextType.RENPY,
-                    })
-                )
+                if src == "":
+                    items.append(
+                        CacheItem({
+                            "src": src,
+                            "dst": dst,
+                            "extra_field": line,
+                            "row": len(items),
+                            "file_type": CacheItem.FileType.RENPY,
+                            "file_path": rel_path,
+                            "text_type": CacheItem.TextType.RENPY,
+                            "status": Base.TranslationStatus.EXCLUDED,
+                        })
+                    )
+                else:
+                    items.append(
+                        CacheItem({
+                            "src": src,
+                            "dst": dst,
+                            "extra_field": line,
+                            "row": len(items),
+                            "file_type": CacheItem.FileType.RENPY,
+                            "file_path": rel_path,
+                            "text_type": CacheItem.TextType.RENPY,
+                            "text_type": Base.TranslationStatus.UNTRANSLATED,
+                        })
+                    )
 
         return items
 
