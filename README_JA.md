@@ -9,7 +9,7 @@
 - [ [中文](./README.md) ] | [ [English](/README_EN.md) ] | [ [日本語](/README_JA.md) ]
 
 ## 概要 📢
-- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)、略して `LG` は、AIを活用した次世代のテキスト翻訳ツールです
+- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)、AIを活用した次世代のテキスト翻訳ツールです
 - 箱から出してすぐに使え、（ほぼ）設定不要。機能の強力さは、煩雑な設定を必要としません。
 - `中国語`、`英語`、`日本語`、`韓国語`、`ロシア語`、`ドイツ語`、`フランス語`、`イタリア語`など13言語にワンタッチ双方向翻訳対応。
 - `字幕`、`電子書籍`、`ゲームテキストなど`、色々なテキストタイプと形式に対応。
@@ -45,15 +45,16 @@
   - `プロジェクト設定` で必要な設定（ソース/ターゲット言語）を行う
   - 入力フォルダ（デフォルト：`input`）にファイルをコピーし、`翻訳開始` で翻訳を開始
 
-## 使い方チュートリアル 📝
-- 図解チュートリアル
-  - [Basic Tutorial](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 手取り足取り教えるよ！手があればOK！初心者さん見てね！`
-- 動画チュートリアル
+## 使い方チュートリアル - English 📝
+- Text Tutorial
+  - [Basic Tutorial](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 Step-by-step tutorial, easy to follow, a must-read for beginners`
+- Video Tutorial
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
-- 上級チュートリアル
-  - [用語集](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[テキスト置換](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)
-  - [RPGMakerシリーズのゲームにおける高品質翻訳のベストプラクティス](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
-- 詳細なガイドは [Wiki](https://github.com/neavo/LinguaGacha/wiki) を参照するか、[Discussions](https://github.com/neavo/LinguaGacha/discussions) で経験を共有
+- Advance Tutorial
+  - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-%E2%80%90-EN)
+  - [MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)　　[ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
+  - [Best Practices for High-Quality Translation of RPGMaker Series Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
+- You can find more details on each feature in the [Wiki](https://github.com/neavo/LinguaGacha/wiki), and you are welcome to share your experience in the [Discussions](https://github.com/neavo/LinguaGacha/discussions)
 
 ## 対応フォーマット 🏷️
 - 入力フォルダ内のすべての対応ファイル（サブディレクトリを含む）を処理：
@@ -63,6 +64,7 @@
   - [RenPy](https://www.renpy.org) エクスポート (.rpy)
   - [MTool](https://mtool.app) エクスポート (.json)
   - [SExtractor](https://github.com/satan53x/SExtractor) エクスポート (.txt .json .xlsx)
+  - [VNTextPatch](https://github.com/arcusmaximus/VNTranslationTools) exports (.json)
   - [Translator++](https://dreamsavior.net/translator-plusplus) プロジェクト (.trans)
   - [Translator++](https://dreamsavior.net/translator-plusplus) エクスポート (.xlsx)
 - 例については [Wiki - 対応フォーマット](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) を参照。フォーマットのリクエストは [ISSUES](https://github.com/neavo/LinguaGacha/issues) で提出

@@ -9,7 +9,7 @@
 - [ [中文](./README.md) ] | [ [English](./README_EN.md) ] | [ [日本語](./README_JA.md) ]
 
 ## Overview 📢
-- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/), abbreviated as `LG`, is an AI-powered next-generation text translator
+- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/), is an AI-powered next-generation text translator
 - Out of the box, (almost) no setup needed, powerful does not need to be shown through complicated setting options
 - Supports one-click translation between 13 languages
   - including `Chinese`, `English`, `Japanese`, `Korean`, `Russian`, `German`, `French`, `Italian`, etc
@@ -53,7 +53,8 @@
 - Video Tutorial
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
 - Advance Tutorial
-  - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)
+  - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-%E2%80%90-EN)
+  - [MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)　　[ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
   - [Best Practices for High-Quality Translation of RPGMaker Series Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
 - You can find more details on each feature in the [Wiki](https://github.com/neavo/LinguaGacha/wiki), and you are welcome to share your experience in the [Discussions](https://github.com/neavo/LinguaGacha/discussions)
 
@@ -65,11 +66,17 @@
   - [RenPy](https://www.renpy.org) exports (.rpy)
   - [MTool](https://mtool.app) exports (.json)
   - [SExtractor](https://github.com/satan53x/SExtractor) exports (.txt .json .xlsx)
+  - [VNTextPatch](https://github.com/arcusmaximus/VNTranslationTools) exports (.json)
   - [Translator++](https://dreamsavior.net/translator-plusplus) project (.trans)
   - [Translator++](https://dreamsavior.net/translator-plusplus) exports (.xlsx)
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
+- 20250317 v0.15.0
+  - ADD - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
+  - ADD - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
+  - OPT - [ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) supports all formats
+
 - 20250316 v0.14.0
   - Translation Quality Focus Release
     - ADD - Result check now detects residual `Kana` and `Hangul`
@@ -91,20 +98,19 @@
     - Retranslates parts of completed translations based on set filter conditions
     - Primarily for content updates or bug fixes in subtitles, ebooks, etc
 
-- 20250313 v0.12.3
-  - OPT - If a data entry in the .trans file has a AQUA tag, force re-translation
-  - FIX - Compatibility issues on some .trans files
-
-- 20250312 v0.12.2
-  - OPT - Performance overhead is way down when there's a lot of concurrent tasks (>=128)
-  - OPT - When translating .trans files, it's more granular now, to tell apart identical text entries from different addresses
-  - FIX - Fixed some problems that could cause translation to get stuck
-
 ## FAQ 📥
 - Relationship between [LinguaGacha](https://github.com/neavo/LinguaGacha) and [AiNiee](https://github.com/NEKOparapa/AiNiee)
-  - `LinguaGacha`'s developer was a main contributor to `AiNiee v5`
-  - `LinguaGacha` is not a fork version of `AiNiee`, it's a new app built upon the lessons learned from `AiNiee`
-  - It's simpler, and it's more powerful. Powerful does not need to be shown through complicated setting options
+  - The author of `LinguaGacha` is one of the main developers and maintainers of `AiNiee v5`.
+  - The UI framework of `AiNiee v5` and its continuation in `AiNiee v6` was also primarily designed and developed by the author.
+  - This is why the UIs are similar; the author ran out of inspiration for a new design, please forgive me 🤣
+  - However, `LinguaGacha` is not a fork of `AiNiee`, but a completely new translator application developed based on that experience.
+  - Compared to `AiNiee v5`, which the author primarily developed, `LinguaGacha` has some unique advantages, including but not limited to:
+    - Zero configuration; optimal translation quality and speed are achieved with all default settings.
+    - Better performance optimization; even with 512+ concurrent tasks, the computer won't lag, and the actual translation speed is faster.
+    - Native support for `.rpy` and `.trans` project files, enabling instant play for most `RenPy` and `RPGMaker` games.
+    - Better support for file formats, e.g., `.epub` format can preserve almost all original styles.
+    - More complete pre-processing, post-processing, and result checking features
+      - Significantly reducing the workload of proofreading to produce high-quality translations.
 
 ## Support 😥
 - Runtime logs are stored in `log` folder

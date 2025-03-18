@@ -6,7 +6,7 @@
 - [ [中文](./README.md) ] | [ [English](./README_EN.md) ] | [ [日本語](./README_JA.md) ]
 
 ## 概述 📢
-- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)，简称 `LG`，使用 AI 技术次世代文本翻译器
+- [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)，使用 AI 技术次世代文本翻译器
 - 开箱即用，（几乎）无需设置，功能的强大，不需要通过繁琐的设置来体现
 - 支持 `中` `英` `日` `韩` `俄` `德` `法` `意` 等 13 种语言的一键互译
 - 支持 `字幕`、`电子书`、`游戏文本` 等多种文本类型与文本格式
@@ -49,7 +49,8 @@
 - 视频教程
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
 - 进阶教程
-  - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+  - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
+  - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)　　[部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
   - [高质量翻译 RenPy 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRenPy)
   - [高质量翻译 RPGMaker 系列引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
@@ -62,11 +63,17 @@
   - [RenPy](https://www.renpy.org) 导出游戏文本（.rpy）
   - [MTool](https://mtool.app) 导出游戏文本（.json）
   - [SExtractor](https://github.com/satan53x/SExtractor) 导出游戏文本（.txt .json .xlsx）
+  - [VNTextPatch](https://github.com/arcusmaximus/VNTranslationTools) 导出游戏文本（.json）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 导出游戏文本（.xlsx）
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250317 v0.15.0
+  - 新增 - [增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 功能
+  - 新增 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 功能
+  - 调整 - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) 功能支持全部格式
+
 - 20250316 v0.14.0
   - 翻译质量提升专题版本
     - 新增 - 结果检查增加 `假名`、`谚文` 的残留检查
@@ -88,21 +95,18 @@
     - 根据设置的筛选条件，重新对已完成的翻译文本中的部分内容进行翻译
     - 主要用于 字幕、电子书 等的内容更新或错误修正
 
-- 20250313 v0.12.3
-  - 调整 - 如果 .trans 文件中的数据条目包含 水蓝色 标签，则强制重新翻译
-  - 修正 - 部分 .trans 文件上的兼容性问题
-
-- 20250312 v0.12.2
-  - 调整 - 显著降低了并发任务数较高（>=128）时的性能消耗
-  - 调整 - 翻译 .trans 文件时，细化粒度以区分不同地址的相同文本条目
-  - 修正 - 修复了一些可能导致翻译时卡住的问题
-
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系
   - `LinguaGacha` 的作者是 `AiNiee v5` 的主要开发与维护者之一
-  - `AiNiee v5` 及延用至 `AiNiee v6` 版的 UI 框架是由作者设计和主要负责开发的
+  - `AiNiee v5` 及延用至 `AiNiee v6` 的 UI 框架也是由作者主要负责设计和开发的
   - 这也是两者 UI 相似的原因，因为作者已经没有灵感再重新设计一套了，求放过 🤣
-  - 但是，`LinguaGacha` 并不是 `AiNiee` 的分支版本，而是在其经验上开发的全新翻译器应用
+  - 不过 `LinguaGacha` 并不是 `AiNiee` 的分支版本，而是在其经验上开发的全新翻译器应用
+  - 相对作者主力开发的 `AiNiee v5`，`LinguaGacha` 有一些独有的优势，包括但是不限于：
+    - 零设置，全默认设置下即可实现最佳的翻译质量与翻译速度
+    - 更好的性能优化，即使 512+ 并发任务时电脑也不会卡顿，实际翻译速度也更快
+    - 原生支持 `.rpy` 和 `.trans` 项目文件，大部分 `RenPy` 和 `RPGMaker` 游戏实现即翻即玩
+    - 对文件格式的支持更好，比如 `.epub` 格式几乎可以保留所有原有样式
+    - 更完善的预处理、后处理和结果检查功能，让制作高品质翻译的校对工作量显著减少
 
 ## 问题反馈 😥
 - 运行时的日志保存在应用根目录下的 `log` 等文件夹
