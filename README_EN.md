@@ -72,10 +72,14 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
+- 20250318 v0.16.0
+  - Added - Timer feature
+  - Adjusted - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection) compatibility optimization
+
 - 20250317 v0.15.0
   - ADD - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
   - ADD - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
-  - OPT - [ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) supports all formats
+  - OPT - [Partial ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) supports all formats
 
 - 20250316 v0.14.0
   - Translation Quality Focus Release

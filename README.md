@@ -69,6 +69,10 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250318 v0.16.0
+  - 新增 - 定时器 功能
+  - 调整 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 兼容性优化
+
 - 20250317 v0.15.0
   - 新增 - [增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 功能
   - 新增 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 功能
