@@ -12,7 +12,7 @@
 - 支持 `字幕`、`电子书`、`游戏文本` 等多种文本类型与文本格式
 - 支持 `Claude`、`ChatGPT`、`DeepSeek`、`SakuraLLM` 等各种本地或在线接口
 
-> <img src="https://github.com/user-attachments/assets/859a7e32-bf35-4572-8460-4ecb11a8d20c" style="width: 80%;">
+> <img src="https://github.com/user-attachments/assets/99f7d74e-ab5b-4645-b736-6f665782b4af" style="width: 80%;">
 
 > <img src="https://github.com/user-attachments/assets/c0d7e898-f6fa-432f-a3cd-e231b657c4b5" style="width: 80%;">
 
@@ -50,7 +50,8 @@
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
 - 进阶教程
   - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
-  - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)　　[部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
+  - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)　　[专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
+  - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
   - [高质量翻译 RenPy 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRenPy)
   - [高质量翻译 RPGMaker 系列引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
@@ -69,6 +70,14 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250319 v0.16.1
+  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)
+    - 参考上文行数阈值
+  - 新增 - 假名残留修复
+    - 主要是 `拟声词`
+  - 调整 - 翻译 .tran 项目时，为水蓝标签设置 `强制翻译` 属性
+    - `强制翻译` 将跳过翻译器所有内部过滤规则，强制进行翻译
+
 - 20250318 v0.16.0
   - 新增 - 定时器 功能
   - 调整 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 兼容性优化
@@ -84,20 +93,6 @@
     - 调整 - 进一步提升了代码保留的能力
     - 调整 - 显著提升了翻译质量，特别是语气词与专有名词的翻译
       - 特别推荐所有火山引擎 DeepSeek 用户升级至此版本
-
-- 20250316 v0.13.2
-  - 修正 - TRANS 文件中部分游戏引擎类型识别无法识别的问题
-
-- 20250316 v0.13.1
-  - 调整 - 增加了新的清理规则
-    - 注音代码 `<Ruby>`
-  - 调整 - 部分重翻支持 RENPY 文件
-  - 修正 - 部分翻译时 EPUB 不能正确输出双语的问题
-
-- 20250315 v0.13.0
-  - 新增 - 部分重翻 功能
-    - 根据设置的筛选条件，重新对已完成的翻译文本中的部分内容进行翻译
-    - 主要用于 字幕、电子书 等的内容更新或错误修正
 
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系

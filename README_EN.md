@@ -16,7 +16,7 @@
 - Supports various text types and formats such as `subtitles`, `e-books`, and `game text`
 - Supports both local and online interfaces such as `Claude`, `ChatGPT`, `DeepSeek`, `SakuraLLM`
 
-> <img src="https://github.com/user-attachments/assets/859a7e32-bf35-4572-8460-4ecb11a8d20c" style="width: 80%;">
+> <img src="https://github.com/user-attachments/assets/99f7d74e-ab5b-4645-b736-6f665782b4af" style="width: 80%;">
 
 > <img src="https://github.com/user-attachments/assets/c0d7e898-f6fa-432f-a3cd-e231b657c4b5" style="width: 80%;">
 
@@ -54,7 +54,8 @@
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
 - Advance Tutorial
   - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-%E2%80%90-EN)
-  - [MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)　　[ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
+  - [ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)　　[Expert Config](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
+  - [MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)
   - [Best Practices for High-Quality Translation of RPGMaker Series Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
 - You can find more details on each feature in the [Wiki](https://github.com/neavo/LinguaGacha/wiki), and you are welcome to share your experience in the [Discussions](https://github.com/neavo/LinguaGacha/discussions)
 
@@ -72,6 +73,14 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
+- 20250319 v0.16.1
+  - ADD - [Expert Settings](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-%E2%80%90-EN)
+    - Preceding lines threshold
+  - ADD - Kana Residue Fix
+    - Mainly `Onomatopoeia`
+  - OPT - When translating .tran projects, set the `Force Translation` attribute for the `AQUA` tag
+    - `Force Translation` will skip all internal filter rule and do force translation
+
 - 20250318 v0.16.0
   - Added - Timer feature
   - Adjusted - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection) compatibility optimization
@@ -87,20 +96,6 @@
     - OPT - Further enhanced code preservation
     - OPT - Significantly improved translation quality, especially for interjections and proper nouns
       - Highly recommended for all Volcengine DeepSeek users
-
-- 20250316 v0.13.2
-  - FIX - Some game engine types in the TRANS file could not be recognized
-
-- 20250316 v0.13.1
-  - OPT - Added some new cleanup rules
-    - Annotation code `<Ruby>`
-  - OPT - Some re-translation support for RENPY files
-  - FIX - Some cases where EPUB wasn't outputting bilingual text correctly during translation
-
-- 20250315 v0.13.0
-  - NEW - Partial Retranslation Feature
-    - Retranslates parts of completed translations based on set filter conditions
-    - Primarily for content updates or bug fixes in subtitles, ebooks, etc
 
 ## FAQ 📥
 - Relationship between [LinguaGacha](https://github.com/neavo/LinguaGacha) and [AiNiee](https://github.com/NEKOparapa/AiNiee)
