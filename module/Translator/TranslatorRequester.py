@@ -209,9 +209,9 @@ class TranslatorRequester(Base):
                 presence_penalty = pp,
                 frequency_penalty = fp,
                 max_tokens = 4096,
-                extra_headers = {
-                    "User-Agent": f"LinguaGacha/{VersionManager.VERSION} (https://github.com/neavo/LinguaGacha)"
-                },
+                #extra_headers = {
+                #    "User-Agent": f"LinguaGacha/{VersionManager.VERSION} (https://github.com/neavo/LinguaGacha)"
+                #},
             )
 
             # 提取回复内容
