@@ -19,6 +19,7 @@ class PromptBuilder(Base):
         Base.Language.ES : "西班牙",
         Base.Language.IT : "意大利文",
         Base.Language.PT : "葡萄牙文",
+        Base.Language.HU : "匈牙利文",
         Base.Language.TH : "泰文",
         Base.Language.ID : "印尼文",
         Base.Language.VI : "越南文",
@@ -34,6 +35,7 @@ class PromptBuilder(Base):
         Base.Language.ES : "Spanish",
         Base.Language.IT : "Italian",
         Base.Language.PT : "Portuguese",
+        Base.Language.HU : "Hungrarian",
         Base.Language.TH : "Thai",
         Base.Language.ID : "Indonesian",
         Base.Language.VI : "Vietnamese",
@@ -107,22 +109,22 @@ class PromptBuilder(Base):
         if len(samples) > 0:
             if prompt_language == Base.Language.ZH:
                 base = base.replace(
-                    "在译文中应原样保留。",
-                    f"在译文中应原样保留，特别是 {"、".join(samples)} 形式的代码段。",
+                    "必须在译文中完整保留。",
+                    f"必须在译文中完整保留，特别是 {"、".join(samples)} 形式的代码。",
                 )
                 extra_log = f"已添加代码示例：\n{"、".join(samples)}"
             elif len(samples) == 1:
                 base = base.replace(
-                    "should be preserved in the translation as-is.",
-                    f"should be preserved in the translation as-is, "
-                    f"especially code segments in the format of {samples[0]}.",
+                    "must be completely preserved in the translation.",
+                    f"must be completely preserved in the translation, "
+                    f"especially code in the format of {samples[0]}.",
                 )
                 extra_log = f"Code samples added:\n{samples[0]}"
             elif len(samples) >= 2:
                 base = base.replace(
-                    "should be preserved in the translation as-is.",
-                    f"should be preserved in the translation as-is, "
-                    f"especially code segments in the format of {f"{", ".join(samples[:-1])} and {samples[-1]}"}.",
+                    "must be completely preserved in the translation.",
+                    f"must be completely preserved in the translation, "
+                    f"especially code in the format of {f"{", ".join(samples[:-1])} and {samples[-1]}"}.",
                 )
                 extra_log = f"Code samples added:\n{f"{", ".join(samples[:-1])} and {samples[-1]}"}"
 

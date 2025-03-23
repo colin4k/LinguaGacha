@@ -11,9 +11,9 @@
 ## Overview 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/), is an AI-powered next-generation text translator
 - Out of the box, (almost) no setup needed, powerful does not need to be shown through complicated setting options
-- Supports one-click translation between 13 languages
+- Supports one-click translation between 14 languages
   - including `Chinese`, `English`, `Japanese`, `Korean`, `Russian`, `German`, `French`, `Italian`, etc
-- Supports various text types and formats such as `subtitles`, `e-books`, and `game text`
+- Supports various text types and formats such as `Subtitle`, `E-Book`, and `Game Text`
 - Supports both local and online interfaces such as `Claude`, `ChatGPT`, `DeepSeek`, `SakuraLLM`
 
 > <img src="https://github.com/user-attachments/assets/99f7d74e-ab5b-4645-b736-6f665782b4af" style="width: 80%;">
@@ -24,22 +24,24 @@
 - If you use [LinguaGacha](https://github.com/neavo/LinguaGacha) during translation, please include clear attribution in prominent locations of your work's information or release pages!
 - For projects involving commercial activities or profits, please contact the author for authorization before using [LinguaGacha](https://github.com/neavo/LinguaGacha)!
 
-## Key Features 📌
-- Lightning-fast translation speed: 10 seconds for subtitles, 1 minute for novels, 5 minutes for games
-- Automatic glossary generation ensuring consistent terminology (e.g., character names) throughout the work `👈👈 Exclusive Feature`
-- Optimal translation quality from flagship models (e.g., DeepSeek-R1) to local small models (e.g., Qwen2.5-7B)
-- `100%` accurate preservation of text formatting and embedded codes, significantly reducing post-processing work - ideal for embedded localization `👈👈 Exclusive Feature`
+## Feature Advantages 📌
+- Ultra-fast translation speed: subtitles in ten seconds, novels in one minute, games in five minutes
+- Automatically generate a glossary to ensure consistent translation of proper nouns like character names throughout the entire work.  `👈👈 Exclusive Feature`
+- Optimal translation quality, whether it's flagship models `such as DeepSeek-R1` or local small models `such as Qwen2.5-7B`
+- The strongest style and code retention capability among similar applications, significantly reducing post-processing workload, making it the best choice for creating embedded Chinese localization.
+  - `.md` `.ass` `.epub` formats can almost retain all original styles.
+  - Most `WOLF`, `RenPy`, `RPGMaker`, `Kirikiri` games require no manual processing, allowing for instant translation and play `👈👈 Exclusive Feature`
 
 ## System Requirements 🖥️
 - Compatible with AI model interfaces following `OpenAI`, `Google`, `Anthropic`, `SakuraLLM` standards
-- Compatible with [KeywordGacha](https://github.com/neavo/KeywordGacha) `👈👈 Next-generation tool for AI-powered glossary generation`
+- Compatible with [KeywordGacha](https://github.com/neavo/KeywordGacha)　`👈👈 Next-generation tool for AI-powered glossary generation`
 
 ## Basic Workflow 🛸
 - Download application from [Releases page](https://github.com/neavo/LinguaGacha/releases)
 - Obtain a reliable AI model interface (choose one):
   - [ [Local API](https://github.com/neavo/OneClickLLAMA) ] (Free, requires ≥8GB VRAM GPU, Nvidia recommended)
-  - [ [DeepSeek API](https://github.com/neavo/LinguaGacha/wiki/DeepSeek) ] (Paid, cost-effective, fast, high-quality, no GPU required) `👈👈 Recommended`
-  - [ [Google Gemini API](https://aistudio.google.com/) ] (Paid, cost-effective, fast, relatively-high-quality, no GPU required) `👈👈 Recommended`
+  - [ [Gemini API](https://aistudio.google.com/) ] (Paid, cost-effective, fast, relatively-high-quality, no GPU required)　`👈👈 Recommended`
+  - [ [DeepSeek API](https://github.com/neavo/LinguaGacha/wiki/DeepSeek) ] (Paid, cost-effective, fast, high-quality, no GPU required)　`👈👈 Unstable during the day, Alternative`
 - Prepare source text:
   - `Subtitles`/`E-books` typically require no preprocessing
   - `Game texts` need extraction using appropriate tools for specific game engines
@@ -73,6 +75,29 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
+- 20250322 v0.18.0
+  - ADD - Rules related to T++ project files (.trans) for the `WOLF` engine
+    - Most games using the `WOLF` engine can be translated and played immediately
+    - Minor untranslated instances may exist
+    - Tutorial will be available shortly
+  - ADD - Deduplicate repeated lines in bilingual output files for [Expert Settings](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-‐-EN)
+  - FIX - Issue with abnormal result checking scope during [Partial Re-translation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-‐-EN) and [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-‐-EN)
+  - **REMINDER** - When using auto-update, a prompt may sometimes appear indicating that `updater.exe` is in use.
+    - This is a known BUG and does not affect normal updates. Please ignore it.
+
+- 20250321 v0.17.0
+  - ADD - Hungarian Language Support, Thanks to @THEYAKUZI
+  - ADD - Auto Update Feature
+  - OPT - Result Check Execution Logic
+
+- 20250320 v0.16.2
+  - OPT - Translation Quality Optimization
+    - Default prompt optimization
+    - Basically resolved the residual issue of `Kana` and `Hangul` modal particles
+  - OPT - Contextual Reference Retrieval Logic Optimization
+    - Can retrieve more lines now
+    - Also effective when using the [Partial ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN) feature
+
 - 20250319 v0.16.1
   - ADD - [Expert Settings](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-%E2%80%90-EN)
     - Preceding lines threshold
@@ -83,33 +108,21 @@
 
 - 20250318 v0.16.0
   - Added - Timer feature
-  - Adjusted - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection) compatibility optimization
-
-- 20250317 v0.15.0
-  - ADD - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
-  - ADD - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
-  - OPT - [Partial ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) supports all formats
-
-- 20250316 v0.14.0
-  - Translation Quality Focus Release
-    - ADD - Result check now detects residual `Kana` and `Hangul`
-    - OPT - Further enhanced code preservation
-    - OPT - Significantly improved translation quality, especially for interjections and proper nouns
-      - Highly recommended for all Volcengine DeepSeek users
+  - Adjusted - [Character Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN) compatibility optimization
 
 ## FAQ 📥
 - Relationship between [LinguaGacha](https://github.com/neavo/LinguaGacha) and [AiNiee](https://github.com/NEKOparapa/AiNiee)
-  - The author of `LinguaGacha` is one of the main developers and maintainers of `AiNiee v5`.
-  - The UI framework of `AiNiee v5` and its continuation in `AiNiee v6` was also primarily designed and developed by the author.
+  - The author of `LinguaGacha` is one of the main developers and maintainers of `AiNiee v5`
+  - The UI framework of `AiNiee v5` and its continuation in `AiNiee v6` was also primarily designed and developed by the author
   - This is why the UIs are similar; the author ran out of inspiration for a new design, please forgive me 🤣
-  - However, `LinguaGacha` is not a fork of `AiNiee`, but a completely new translator application developed based on that experience.
+  - However, `LinguaGacha` is not a fork of `AiNiee`, but a completely new translator application developed based on that experience
   - Compared to `AiNiee v5`, which the author primarily developed, `LinguaGacha` has some unique advantages, including but not limited to:
-    - Zero configuration; optimal translation quality and speed are achieved with all default settings.
-    - Better performance optimization; even with 512+ concurrent tasks, the computer won't lag, and the actual translation speed is faster.
-    - Native support for `.rpy` and `.trans` project files, enabling instant play for most `RenPy` and `RPGMaker` games.
-    - Better support for file formats, e.g., `.epub` format can preserve almost all original styles.
+    - Zero configuration; optimal translation quality and speed are achieved with all default settings
+    - Better performance optimization; even with 512+ concurrent tasks, the computer won't lag, and the actual translation speed is faster
+    - Native support for `.rpy` and `.trans` project files, enabling instant play for most `RenPy` and `RPGMaker` games
+    - Better support for file formats, e.g.,  `.md` `.ass` `.epub` format can preserve almost all original styles
     - More complete pre-processing, post-processing, and result checking features
-      - Significantly reducing the workload of proofreading to produce high-quality translations.
+      - Significantly reducing the workload of proofreading to produce high-quality translations
 
 ## Support 😥
 - Runtime logs are stored in `log` folder

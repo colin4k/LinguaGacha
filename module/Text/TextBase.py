@@ -68,7 +68,10 @@ class TextBase:
         if not (
             0xFF01 <= c <= 0xFF60                       # 排除全角标点符号
             or 0x3000 <= c <= 0x303F                    # 排除全角标点符号
-            or c == 0x30FB                              # 排除中点 ・
+            or c in (
+                0x30FB,                                 # 排除中点 ・
+                0x30FC,                                 # 排除長音符 ー
+            )
         )
     }
 
@@ -109,6 +112,11 @@ class TextBase:
     # 葡萄牙文字符
     PT_SET = LATIN_SET | {
         "á", "é", "í", "ó", "ú", "ã", "õ", "à", "â", "ê", "ô", "ç"
+    }
+
+    # 匈牙利文字符
+    HU_SET = LATIN_SET | {
+        "á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű"
     }
 
     # 印尼文字符 (基本上使用拉丁字母)
@@ -247,6 +255,11 @@ class IT(TextBase):
 class PT(TextBase):
     def char(self, c: str) -> bool:
         return c in TextBase.PT_SET
+
+# 匈牙利文
+class HU(TextBase):
+    def char(self, c: str) -> bool:
+        return c in TextBase.HU_SET
 
 # 泰文
 class TH(TextBase):

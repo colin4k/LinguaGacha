@@ -24,6 +24,8 @@ class Base():
         PROJECT_STATUS_CHECK_DONE: int = 410                    # 项目状态检查完成
         APP_UPDATE_CHECK: int = 500                             # 检查更新
         APP_UPDATE_CHECK_DONE: int = 510                        # 检查更新完成
+        APP_UPDATE_DOWNLOAD: int = 520                          # 下载应用
+        APP_UPDATE_DOWNLOAD_UPDATE: int = 530                   # 下载应用更新
         APP_TOAST_SHOW: int = 600                               # 显示 Toast
         APP_SHUT_DOWN: int = 1000                               # 应用关闭
 
@@ -48,6 +50,7 @@ class Base():
         ES: str = "ES"                                          # 西班牙语 (Spanish)
         IT: str = "IT"                                          # 意大利语 (Italian)
         PT: str = "PT"                                          # 葡萄牙语 (Portuguese)
+        HU: str = "HU"                                          # 匈牙利语 (Hungrarian)
         TH: str = "TH"                                          # 泰语 (Thai)
         ID: str = "ID"                                          # 印尼语 (Indonesian)
         VI: str = "VI"                                          # 越南语 (Vietnamese)
@@ -80,6 +83,7 @@ class Base():
         UNTRANSLATED: str = "UNTRANSLATED"                      # 待翻译
         TRANSLATING: str = "TRANSLATING"                        # 翻译中
         TRANSLATED: str = "TRANSLATED"                          # 已翻译
+        TRANSLATED_IN_PAST: str = "TRANSLATED_IN_PAST"          # 过去已翻译
         EXCLUDED: str = "EXCLUDED"                              # 已排除
 
     # 配置文件路径

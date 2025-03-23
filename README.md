@@ -8,7 +8,7 @@
 ## 概述 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/)，使用 AI 技术次世代文本翻译器
 - 开箱即用，（几乎）无需设置，功能的强大，不需要通过繁琐的设置来体现
-- 支持 `中` `英` `日` `韩` `俄` `德` `法` `意` 等 13 种语言的一键互译
+- 支持 `中` `英` `日` `韩` `俄` `德` `法` `意` 等 14 种语言的一键互译
 - 支持 `字幕`、`电子书`、`游戏文本` 等多种文本类型与文本格式
 - 支持 `Claude`、`ChatGPT`、`DeepSeek`、`SakuraLLM` 等各种本地或在线接口
 
@@ -22,20 +22,22 @@
 
 ## 功能优势 📌
 - 极快的翻译速度，十秒钟一份字幕，一分钟一本小说，五分钟一部游戏
-- 自动生成术语表，保证角色姓名等专有名词在整部作品中的译名统一  `👈👈 独家绝技`
-- 最优的翻译质量，无论是 旗舰模型 `诸如 DeepSeek-R1` 还是 本地小模型 `诸如 Qwen2.5-7B`
-- `100%` 精确还原文本样式与文本内代码，显著减少后期工作量，是制作内嵌汉化的最佳选择  `👈👈 独家绝技`
+- 自动生成术语表，保证角色姓名等专有名词在整部作品中的译名统一　`👈👈 独家绝技`
+- 最优的翻译质量，无论是 旗舰模型 `诸如 DeepSeek-R1` 还是 本地小模型　`诸如 Qwen2.5-7B`
+- 同类应用中最强的样式与代码保留能力，显著减少后期工作量，是制作内嵌汉化的最佳选择
+  - `.md` `.ass` `.epub` 格式几乎可以保留所有原有样式
+  - 大部分的 `WOLF`、`RenPy`、`RPGMaker`、`Kirikiri` 引擎游戏无需人工处理，即翻即玩　`👈👈 独家绝技`
 
 ## 配置要求 🖥️
 - 兼容 `OpenAI` `Google` `Anthropic` `SakuraLLM` 标准的 AI 大模型接口
-- 兼容 [KeywordGacha](https://github.com/neavo/KeywordGacha) `👈👈 使用 AI 能力一键生成术语表的次世代工具`
+- 兼容 [KeywordGacha](https://github.com/neavo/KeywordGacha)　`👈👈 使用 AI 能力一键生成术语表的次世代工具`
 
 ## 基本流程 🛸
 - 从 [发布页](https://github.com/neavo/LinguaGacha/releases) 下载应用
 - 获取一个可靠的 AI 大模型接口，建议选择其一：
   - [ [本地接口](https://github.com/neavo/OneClickLLAMA) ]，免费，需至少 8G 显存的独立显卡，Nvidia 显卡为佳
-  - [ [火山引擎](https://github.com/neavo/LinguaGacha/wiki/VolcEngine) ]，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 推荐`
-  - [ [DeepSeek](https://github.com/neavo/LinguaGacha/wiki/DeepSeek) ]，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 推荐`
+  - [ [火山引擎](https://github.com/neavo/LinguaGacha/wiki/VolcEngine) ]，需付费但便宜，速度快，质量高，无显卡要求　`👈👈 推荐`
+  - [ [DeepSeek](https://github.com/neavo/LinguaGacha/wiki/DeepSeek) ]，需付费但便宜，速度快，质量高，无显卡要求 `👈👈 白天不稳定，备选`
 - 准备要翻译的文本
   - `字幕`、`电子书` 等一般不需要预处理
   - `游戏文本` 需要根据游戏引擎选择合适的工具进行提取
@@ -70,6 +72,29 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250322 v0.18.0
+  - 新增 - `WOLF` 引擎的 T++ 项目文件（.trans）相关规则
+    - 大部分 `WOLF` 引擎游戏可即翻即玩
+    - 存在少量漏翻情况
+    - 教程将稍后奉上
+  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig) 双语输出文件中重复行去重
+  - 修正 - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)、[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 时结果检查范围异常的问题
+  - **提醒** - 使用自动更新时，有时会提示 `updater.exe` 被占用
+    - 这是已知 BUG，不影响正常更新，无视它即可
+
+- 20250321 v0.17.0
+  - 新增 - 匈牙利语 支持，感谢 @THEYAKUZI
+  - 新增 - 自动更新 功能
+  - 调整 - 结果检查执行逻辑
+
+- 20250320 v0.16.2
+  - 调整 - 翻译质量优化
+    - 默认提示词优化
+    - 基本解决了 `假名`、`谚文` 语气词的残留问题
+  - 调整 - 参考上文获取逻辑优化
+    - 可以获取更多行了
+    - 使用 [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) 功能时也可以生效了
+
 - 20250319 v0.16.1
   - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)
     - 参考上文行数阈值
@@ -82,18 +107,6 @@
   - 新增 - 定时器 功能
   - 调整 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 兼容性优化
 
-- 20250317 v0.15.0
-  - 新增 - [增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 功能
-  - 新增 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 功能
-  - 调整 - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) 功能支持全部格式
-
-- 20250316 v0.14.0
-  - 翻译质量提升专题版本
-    - 新增 - 结果检查增加 `假名`、`谚文` 的残留检查
-    - 调整 - 进一步提升了代码保留的能力
-    - 调整 - 显著提升了翻译质量，特别是语气词与专有名词的翻译
-      - 特别推荐所有火山引擎 DeepSeek 用户升级至此版本
-
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系
   - `LinguaGacha` 的作者是 `AiNiee v5` 的主要开发与维护者之一
@@ -104,7 +117,7 @@
     - 零设置，全默认设置下即可实现最佳的翻译质量与翻译速度
     - 更好的性能优化，即使 512+ 并发任务时电脑也不会卡顿，实际翻译速度也更快
     - 原生支持 `.rpy` 和 `.trans` 项目文件，大部分 `RenPy` 和 `RPGMaker` 游戏实现即翻即玩
-    - 对文件格式的支持更好，比如 `.epub` 格式几乎可以保留所有原有样式
+    - 对文件格式的支持更好，例如 `.md` `.ass` `.epub` 格式几乎可以保留所有原有样式
     - 更完善的预处理、后处理和结果检查功能，让制作高品质翻译的校对工作量显著减少
 
 ## 问题反馈 😥
