@@ -108,49 +108,28 @@ class ResponseChecker(Base):
                 check_result.append(ResponseChecker.Error.LINE_ERROR_HANGEUL)
                 continue
 
-            # 判断是否包含或相似
-            #is_similar = src in dst or dst in src or TextHelper.check_similarity_by_jaccard(src, dst) > 0.80
+            # # 判断是否包含或相似
+            # if src in dst or dst in src or TextHelper.check_similarity_by_jaccard(src, dst) > 0.80 == True:
+            #     # 日翻中时，只有译文至少包含一个平假名或片假名字符时，才判断为 相似
+            #     if self.source_language == Base.Language.JA and self.target_language == Base.Language.ZH:
+            #         if TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst):
+            #             check_result.append(ResponseChecker.Error.LINE_ERROR_SIMILARITY)
+            #             continue
+            #     # 韩翻中时，只有译文至少包含一个谚文字符时，才判断为 相似
+            #     elif (
+            #         self.source_language == Base.Language.KO
+            #         and self.target_language == Base.Language.ZH
+            #         and TextHelper.KO.any_hangeul(dst)
+            #     ):
+            #         check_result.append(ResponseChecker.Error.LINE_ERROR_SIMILARITY)
+            #         continue
+            #     # 其他情况，只要原文译文相同或相似就可以判断为 相似
+            #     else:
+            #         check_result.append(ResponseChecker.Error.LINE_ERROR_SIMILARITY)
+            #         continue
 
-            # 不包含或相似时，判断为正确翻译
-            #if not is_similar:
-            #    data.append(0)
-            #else:
-            # 日翻中时，只有译文至少包含一个平假名或片假名字符时，才判断为 相似
-            #if self.source_language == Base.Language.JA and self.target_language == Base.Language.ZH:
-            #    if TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst):
-            #        data.append(1)
-            #    else:
-            #        data.append(0)
-            # 韩翻中时，只有译文至少包含一个谚文字符时，判断为 相似
-            #elif self.source_language == Base.Language.KO and self.target_language == Base.Language.ZH:
-            #    if TextHelper.KO.any_hangeul(dst):
-            #        data.append(1)
-            #    else:
-            #        data.append(0)
-            # 其他情况，只要原文译文相同或相似就可以判断为 相似
-            #else:
-            #    data.append(1)
+            # 默认为无错误
+            check_result.append(ResponseChecker.Error.NONE)
 
-        if all(v == 0 for v in data):
-            return None, None
-        else:
-            return ResponseChecker.Error.SIMILARITY, data
-
-    # 退化检测
-    def check_degradation(self, src_dict: dict[str, str], dst_dict: dict[str, str]) -> None:
-        data: list[int] = []
-
-        for src, dst in zip(src_dict.values(), dst_dict.values()):
-            src = src.strip()
-            dst = dst.strip()
-
-            # 当原文中不包含重复文本但是译文中包含重复文本时，判断为 退化
-            if ResponseChecker.RE_DEGRADATION.search(src) == None and ResponseChecker.RE_DEGRADATION.search(dst) != None:
-                data.append(1)
-            else:
-                data.append(0)
-
-        if all(v == 0 for v in data):
-            return None, None
-        else:
-            return ResponseChecker.Error.DEGRADATION, data
+        # 返回结果
+        return check_result
