@@ -4,7 +4,7 @@ from module.Cache.CacheItem import CacheItem
 
 class RuleFilter():
 
-    PREFIX = (
+    PREFIX: tuple[str] = (
         "MapData/".lower(),
         "SE/".lower(),
         "BGS".lower(),
@@ -13,28 +13,12 @@ class RuleFilter():
         "FIcon/".lower(),
     )
 
-    SUFFIX = (
-        ".mp3".lower(),
-        ".wav".lower(),
-        ".ogg".lower(),
-        ".png".lower(),
-        ".jpg".lower(),
-        ".gif".lower(),
-        ".psd".lower(),
-        ".webp".lower(),
-        ".heif".lower(),
-        ".heic".lower(),
-        ".avi".lower(),
-        ".mp4".lower(),
-        ".webm".lower(),
-        ".txt".lower(),
-        ".ttf".lower(),
-        ".otf".lower(),
-        ".7z".lower(),
-        ".gz".lower(),
-        ".rar".lower(),
-        ".zip".lower(),
-        ".json".lower(),
+    SUFFIX: tuple[str] = (
+        ".mp3", ".wav", ".ogg", "mid",
+        ".png", ".jpg", ".jpeg", ".gif", ".psd", ".webp", ".heif", ".heic",
+        ".avi", ".mp4", ".webm",
+        ".txt", ".ttf", ".otf", ".7z", ".gz", ".rar", ".zip", ".json",
+        ".sav", ".mps",
     )
 
     RE_ALL = (
@@ -84,7 +68,7 @@ class RuleFilter():
                 continue
 
             # 符合目标规则
-            if any(re.findall(v, line, flags = re.IGNORECASE) != [] for v in RuleFilter.RE_ALL):
+            if any(v.search(line) is not None for v in RuleFilter.RE_ALL):
                 flags.append(True)
                 continue
 

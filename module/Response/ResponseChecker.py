@@ -1,6 +1,7 @@
 import re
 
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
 from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
 from module.Filter.RuleFilter import RuleFilter
@@ -30,6 +31,10 @@ class ResponseChecker(Base):
             LINE_ERROR_DEGRADATION,
         )
 
+    # 重试次数阈值
+    RETRY_COUNT_THRESHOLD: int = 2
+
+    # 退化检测规则
     RE_DEGRADATION = re.compile(r"(.{1,2})\1{16,}", flags = re.IGNORECASE)
 
     def __init__(self, config: dict, items: list[CacheItem]) -> None:
@@ -47,8 +52,8 @@ class ResponseChecker(Base):
         if len(dst_dict) == 0 or all(v == "" or v == None for v in dst_dict.values()):
             return [ResponseChecker.Error.FAIL_DATA]
 
-        # 当翻译任务为单条目任务，且此条目已单独重试过至少一次，直接返回，不进行后续判断
-        if len(self.items) == 1 and self.items[0].get_retry_count() > 1:
+        # 当翻译任务为单条目任务，且此条目已经是第二次单独重试时，直接返回，不进行后续判断
+        if len(self.items) == 1 and self.items[0].get_retry_count() >= ResponseChecker.RETRY_COUNT_THRESHOLD:
             return [ResponseChecker.Error.NONE]
 
         # 行数检查
@@ -99,12 +104,12 @@ class ResponseChecker(Base):
                 continue
 
             # 当原文语言为日语，且译文中包含平假名或片假名字符时，判断为 假名残留
-            if source_language == Base.Language.JA and (TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst)):
+            if source_language == BaseLanguage.JA and (TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst)):
                 check_result.append(ResponseChecker.Error.LINE_ERROR_KANA)
                 continue
 
             # 当原文语言为韩语，且译文中包含谚文字符时，判断为 谚文残留
-            if source_language == Base.Language.KO and TextHelper.KO.any_hangeul(dst):
+            if source_language == BaseLanguage.KO and TextHelper.KO.any_hangeul(dst):
                 check_result.append(ResponseChecker.Error.LINE_ERROR_HANGEUL)
                 continue
 

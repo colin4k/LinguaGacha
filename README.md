@@ -54,6 +54,7 @@
   - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
   - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)　　[专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
   - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+  - [高质量翻译 WOLF 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLF)
   - [高质量翻译 RenPy 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRenPy)
   - [高质量翻译 RPGMaker 系列引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
@@ -72,12 +73,23 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
+- 20250325 v0.18.2
+  - 新增 - 转义修复 规则
+  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 翻译规则更新
+  - 修正 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 有时会导出失败的问题
+
+- 20250323 v0.18.1
+  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)（结果检查 - 重试次数达到阈值）
+  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 翻译规则更新
+    - 显著减少了 `WOLF` `RPGMaker` 引擎游戏中未翻译的文本
+  - 调整 - 移除 `强制翻译` 属性
+
 - 20250322 v0.18.0
   - 新增 - `WOLF` 引擎的 T++ 项目文件（.trans）相关规则
     - 大部分 `WOLF` 引擎游戏可即翻即玩
     - 存在少量漏翻情况
     - 教程将稍后奉上
-  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig) 双语输出文件中重复行去重
+  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)（双语输出文件中重复行去重）
   - 修正 - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)、[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 时结果检查范围异常的问题
   - **提醒** - 使用自动更新时，有时会提示 `updater.exe` 被占用
     - 这是已知 BUG，不影响正常更新，无视它即可
@@ -86,26 +98,6 @@
   - 新增 - 匈牙利语 支持，感谢 @THEYAKUZI
   - 新增 - 自动更新 功能
   - 调整 - 结果检查执行逻辑
-
-- 20250320 v0.16.2
-  - 调整 - 翻译质量优化
-    - 默认提示词优化
-    - 基本解决了 `假名`、`谚文` 语气词的残留问题
-  - 调整 - 参考上文获取逻辑优化
-    - 可以获取更多行了
-    - 使用 [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation) 功能时也可以生效了
-
-- 20250319 v0.16.1
-  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)
-    - 参考上文行数阈值
-  - 新增 - 假名残留修复
-    - 主要是 `拟声词`
-  - 调整 - 翻译 .tran 项目时，为水蓝标签设置 `强制翻译` 属性
-    - `强制翻译` 将跳过翻译器所有内部过滤规则，强制进行翻译
-
-- 20250318 v0.16.0
-  - 新增 - 定时器 功能
-  - 调整 - [角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection) 兼容性优化
 
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系
@@ -116,7 +108,7 @@
   - 相对作者主力开发的 `AiNiee v5`，`LinguaGacha` 有一些独有的优势，包括但是不限于：
     - 零设置，全默认设置下即可实现最佳的翻译质量与翻译速度
     - 更好的性能优化，即使 512+ 并发任务时电脑也不会卡顿，实际翻译速度也更快
-    - 原生支持 `.rpy` 和 `.trans` 项目文件，大部分 `RenPy` 和 `RPGMaker` 游戏实现即翻即玩
+    - 原生支持 `.rpy` `.trans`，大部分 `WOLF`、`RenPy`、`RPGMaker`、`Kirikiri` 游戏即翻即玩
     - 对文件格式的支持更好，例如 `.md` `.ass` `.epub` 格式几乎可以保留所有原有样式
     - 更完善的预处理、后处理和结果检查功能，让制作高品质翻译的校对工作量显著减少
 

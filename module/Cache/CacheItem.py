@@ -64,7 +64,6 @@ class CacheItem(BaseData):
         self.text_type: str = CacheItem.TextType.NONE                   # 文本的实际类型
         self.status: str = Base.TranslationStatus.UNTRANSLATED          # 翻译状态
         self.retry_count: int = 0                                       # 重试次数，当前只有单独重试的时候才增加此计数
-        self.force_translation: bool = False                            # 强制翻译，此属性为 True 时，将跳过内部过滤机制，强制进行翻译
 
         # 初始化
         for k, v in args.items():
@@ -188,16 +187,6 @@ class CacheItem(BaseData):
         with self.lock:
             self.retry_count = retry_count
 
-    # 获取强制翻译
-    def get_force_translation(self) -> bool:
-        with self.lock:
-            return self.force_translation
-
-    # 设置强制翻译
-    def set_force_translation(self, force_translation: bool) -> None:
-        with self.lock:
-            self.force_translation = force_translation
-
     # 获取 Token 数量
     def get_token_count(self) -> int:
         with self.lock:
@@ -232,8 +221,8 @@ class CacheItem(BaseData):
             # 冗余步骤
             # 当跳过行数检查步骤时，原文行数可能大于译文行数，此时需要填充多出来的行数
             else:
-                check.append(0)
-                dst = dst + str("") + "\n"
+                check.append(ResponseChecker.Error.NONE)
+                dst = dst + "" + "\n"
 
         # 如果当前片段中有没通过检查的子句，则将返回结果置空，以示当前片段需要重新翻译
         if any(v != ResponseChecker.Error.NONE for v in check):

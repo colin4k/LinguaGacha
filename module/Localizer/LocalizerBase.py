@@ -47,7 +47,8 @@ class LocalizerBase():
     app_new_version_update: str = "正在下载 {PERCENT} ..."
     app_new_version_failure: str = "新版本下载失败 ... "
     app_new_version_success: str = "新版本下载成功 ... "
-    app_new_version_downloaded: str = "下载完成点击重启！"
+    app_new_version_downloaded: str = "点击应用新版本！"
+    app_new_version_waiting_restart: str = "更新完成，应用即将关闭 ..."
     app_theme_btn: str = "变换自如"
     app_language_btn: str = "字字珠玑"
     app_settings_page: str = "应用设置"
@@ -75,6 +76,7 @@ class LocalizerBase():
     path_result_check_similarity: str = "结果检查_相似度较高.json"
     path_result_check_glossary: str = "结果检查_术语表未生效.json"
     path_result_check_untranslated: str = "结果检查_未翻译的条目.json"
+    path_result_check_retry_count_threshold: str = "结果检查_重试次数达到阈值.json"
     path_result_name_injection_file: str = "结果.xlsx"
     path_result_name_injection_folder: str = "角色姓名注入"
 
@@ -207,10 +209,8 @@ class LocalizerBase():
     # 项目设置
     project_page_source_language_title: str = "原文语言"
     project_page_source_language_content: str = "设置当前翻译项目所使用的原文文本的语言"
-    project_page_source_language_items: str = "中文,英文,日文,韩文,俄文,德文,法文,西班牙文,意大利文,葡萄牙文,匈牙利文,泰文,印尼文,越南文"
     project_page_target_language_title: str = "译文语言"
     project_page_target_language_content: str = "设置当前翻译项目所使用的译文文本的语言"
-    project_page_target_language_items: str = "中文,英文,日文,韩文,俄文,德文,法文,西班牙文,意大利文,葡萄牙文,匈牙利文,泰文,印尼文,越南文"
     project_page_input_folder_title: str = "输入文件夹"
     project_page_input_folder_content: str = "当前输入文件夹为"
     project_page_input_folder_btn: str = "选择文件夹"

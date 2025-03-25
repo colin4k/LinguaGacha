@@ -23,9 +23,10 @@ class Base():
         PROJECT_STATUS: int = 400                               # 项目状态检查
         PROJECT_STATUS_CHECK_DONE: int = 410                    # 项目状态检查完成
         APP_UPDATE_CHECK: int = 500                             # 检查更新
-        APP_UPDATE_CHECK_DONE: int = 510                        # 检查更新完成
-        APP_UPDATE_DOWNLOAD: int = 520                          # 下载应用
-        APP_UPDATE_DOWNLOAD_UPDATE: int = 530                   # 下载应用更新
+        APP_UPDATE_CHECK_DONE: int = 510                        # 检查更新 - 完成
+        APP_UPDATE_DOWNLOAD: int = 520                          # 检查更新 - 下载
+        APP_UPDATE_DOWNLOAD_UPDATE: int = 530                   # 检查更新 - 下载进度更新
+        APP_UPDATE_EXTRACT: int = 540                           # 检查更新 - 解压
         APP_TOAST_SHOW: int = 600                               # 显示 Toast
         APP_SHUT_DOWN: int = 1000                               # 应用关闭
 
@@ -36,30 +37,6 @@ class Base():
         TESTING: int = 200                                      # 运行中
         TRANSLATING: int = 300                                  # 运行中
         STOPPING: int = 400                                     # 停止中
-
-    # 语言
-    class Language():
-
-        ZH: str = "ZH"                                          # 中文 (Chinese)
-        EN: str = "EN"                                          # 英语 (English)
-        JA: str = "JA"                                          # 日语 (Japanese)
-        KO: str = "KO"                                          # 韩语 (Korean)
-        RU: str = "RU"                                          # 俄语 (Russian)
-        DE: str = "DE"                                          # 德语 (German)
-        FR: str = "FR"                                          # 法语 (French)
-        ES: str = "ES"                                          # 西班牙语 (Spanish)
-        IT: str = "IT"                                          # 意大利语 (Italian)
-        PT: str = "PT"                                          # 葡萄牙语 (Portuguese)
-        HU: str = "HU"                                          # 匈牙利语 (Hungrarian)
-        TH: str = "TH"                                          # 泰语 (Thai)
-        ID: str = "ID"                                          # 印尼语 (Indonesian)
-        VI: str = "VI"                                          # 越南语 (Vietnamese)
-
-        CJK: tuple[str] = (
-            ZH,
-            JA,
-            KO,
-        )
 
     # 接口格式
     class APIFormat():

@@ -47,7 +47,8 @@ class LocalizerEN(LocalizerBase):
     app_new_version_update: str = "Downloading {PERCENT} ..."
     app_new_version_failure: str = "New version download failed ..."
     app_new_version_success: str = "New version download successful ..."
-    app_new_version_downloaded: str = "Completed, tap to restart!"
+    app_new_version_downloaded: str = "Click to apply New Version!"
+    app_new_version_waiting_restart: str = "Update completed, application will close soon ..."
     app_theme_btn: str = "Theme"
     app_language_btn: str = "Language"
     app_settings_page: str = "App Settings"
@@ -75,6 +76,7 @@ class LocalizerEN(LocalizerBase):
     path_result_check_similarity: str = "result_check_high_similarity.json"
     path_result_check_glossary: str = "result_check_incorrect_glossary.json"
     path_result_check_untranslated: str = "result_check_untranslated_entries.json"
+    path_result_check_retry_count_threshold: str = "result_check_retry_count_reach_threshold.json"
     path_result_name_injection_file: str= "result.xlsx"
     path_result_name_injection_folder: str = "name_injection"
 
@@ -207,10 +209,8 @@ class LocalizerEN(LocalizerBase):
     # 项目设置
     project_page_source_language_title: str = "Source Language"
     project_page_source_language_content: str = "Set the language of the source text used in the current translation project"
-    project_page_source_language_items: str = "Chinese,English,Japanese,Korean,Russian,German,French,Spanish,Italian,Portuguese,Hungrarian,Thai,Indonesian,Vietnamese"
     project_page_target_language_title: str = "Target Language"
     project_page_target_language_content: str = "Set the language of the translated text used in the current translation project"
-    project_page_target_language_items: str = "Chinese,English,Japanese,Korean,Russian,German,French,Spanish,Italian,Portuguese,Hungrarian,Thai,Indonesian,Vietnamese"
     project_page_input_folder_title: str = "Input Folder"
     project_page_input_folder_content: str = "Current input folder is"
     project_page_input_folder_btn: str = "Select Folder"

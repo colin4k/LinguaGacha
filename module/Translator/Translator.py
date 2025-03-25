@@ -78,10 +78,14 @@ class Translator(Base):
 
     # 翻译结果手动导出事件
     def translation_manual_export(self, event: int, data: dict) -> None:
-        # 确保当前状态为 翻译中
-        if Base.WORK_STATUS != Base.Status.TRANSLATING:
-            return None
+        if Base.WORK_STATUS == Base.Status.TRANSLATING:
+            threading.Thread(
+                target = self.translation_manual_export_target,
+                args = (event, data),
+            ).start()
 
+    # 翻译结果手动导出事件
+    def translation_manual_export_target(self, event: int, data: dict) -> None:
         # 复制一份以避免影响原始数据
         items = self.cache_manager.copy_items()
 
@@ -318,7 +322,7 @@ class Translator(Base):
         # 筛选出无效条目并标记为已排除
         target = [
             v for v in items
-            if v.get_force_translation() == False and RuleFilter.filter(v) == True
+            if RuleFilter.filter(v) == True
         ]
         for item in target:
             item.set_status(Base.TranslationStatus.EXCLUDED)
@@ -341,7 +345,7 @@ class Translator(Base):
         source_language = self.config.get("source_language")
         target = [
             v for v in items
-            if v.get_force_translation() == False and LanguageFilter.filter(v, source_language) == True
+            if LanguageFilter.filter(v, source_language) == True
         ]
         for item in target:
             item.set_status(Base.TranslationStatus.EXCLUDED)
