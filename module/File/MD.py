@@ -42,6 +42,7 @@ class MD(Base):
 
             # 数据处理
             with open(abs_path, "r", encoding = "utf-8-sig") as reader:
+                in_code_block = False  # 跟踪是否在代码块内
                 for line in [line.removesuffix("\n") for line in reader.readlines()]:
                     # 检查是否是代码块的开始或结束
                     if line.startswith("```"):

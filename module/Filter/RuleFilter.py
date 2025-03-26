@@ -68,7 +68,7 @@ class RuleFilter():
                 continue
 
             # 符合目标规则
-            if any(v.search(line) is not None for v in RuleFilter.RE_ALL):
+            if any(re.findall(v, line, flags = re.IGNORECASE) != [] for v in RuleFilter.RE_ALL):
                 flags.append(True)
                 continue
 
