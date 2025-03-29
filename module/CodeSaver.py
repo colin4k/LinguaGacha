@@ -23,13 +23,16 @@ class CodeSaver(Base):
         r"\[[^\[\]]*\]",                                                            # [renpy.version_only]
     )
 
-    # 用于 RPGMaker 的规则
+  # 用于 RPGMaker 的规则
     RE_CODE_WOLF_RPGMAKER = (
         r"en\(.{0,8}[vs]\[\d+\].{0,16}\)",                                          # en(!s[982]) en(v[982] >= 1)
         r"if\(.{0,8}[vs]\[\d+\].{0,16}\)",                                          # if(!s[982]) if(v[982] >= 1)
         r"[<【]{0,1}[/\\][a-z]{1,8}[<\[][a-z\d]{0,16}[>\]][>】]{0,1}",              # /c[xy12] \bc[xy12] <\bc[xy12]>【/c[xy12]】
         r"[/\\][a-z]{1,8}(?=<.{0,16}>|\[.{0,16}\])",                                # /C<> \FS<> /C[] \FS[] 中 <> [] 前的部分
-        r"@\d+",                                                                    # 角色 ID
+        r"@\d+",                                                                    # WOLF - 角色 ID
+        r"\\cdb\[.+?:.+?:.+?\]",                                                    # WOLF - 数据库变量 \cdb[0:1:2] \sdb[\cself[90]:\cself[10]:17] sda
+        r"\\udb\[.+?:.+?:.+?\]",                                                    # WOLF - 数据库变量 \cdb[0:1:2] \sdb[\cself[90]:\cself[10]:17] sda
+        r"\\sdb\[.+?:.+?:.+?\]",                                                    # WOLF - 数据库变量 \cdb[0:1:2] \sdb[\cself[90]:\cself[10]:17] sda
         r"\\fr",                                                                    # 重置文本的改变
         r"\\fb",                                                                    # 加粗
         r"\\fi",                                                                    # 倾斜
@@ -71,18 +74,18 @@ class CodeSaver(Base):
         self.suffix_codes = {}
 
     # 预处理
-    def pre_process(self, src_dict: dict[str, str], text_type_dict: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    def pre_process(self, src_dict: dict[str, str], item_dict: dict[str, CacheItem]) -> tuple[dict[str, str], list[str]]:
         # 通过字典保证去重且有序
         samples: dict[str, str] = {}
-        for k in src_dict.keys():
-            if text_type_dict.get(k) == CacheItem.TextType.MD:
+        for k, item in zip(src_dict.keys(), item_dict.values()):
+            if item.get_text_type() == CacheItem.TextType.MD:
                 samples["markdown"] = ""
                 self.pre_process_none(k, src_dict)
-            elif text_type_dict.get(k) == CacheItem.TextType.RENPY:
+            elif item.get_text_type() == CacheItem.TextType.RENPY:
                 samples["[…]"] = ""
                 samples["{…}"] = ""
                 self.pre_process_renpy(k, src_dict)
-            elif text_type_dict.get(k) in (CacheItem.TextType.WOLF, CacheItem.TextType.RPGMAKER):
+            elif item.get_text_type() in (CacheItem.TextType.WOLF, CacheItem.TextType.RPGMAKER):
                 samples["if(…)"] = ""
                 samples["en(…)"] = ""
                 samples["\\abc[…]"] = ""

@@ -269,8 +269,9 @@ class Translator(Base):
         # MTool 优化器后处理
         self.mtool_optimizer_postprocess(self.cache_manager.get_items())
 
-        # 设置项目状态为已翻译
-        self.cache_manager.get_project().set_status(Base.TranslationStatus.TRANSLATED)
+        # 如已完成全部条目的翻译，则设置项目状态为已翻译
+        if self.cache_manager.get_item_count_by_status(Base.TranslationStatus.UNTRANSLATED) == 0:
+            self.cache_manager.get_project().set_status(Base.TranslationStatus.TRANSLATED)
 
         # 等待可能存在的缓存文件写入请求处理完毕
         time.sleep(CacheManager.SAVE_INTERVAL)
@@ -322,7 +323,7 @@ class Translator(Base):
         # 筛选出无效条目并标记为已排除
         target = [
             v for v in items
-            if RuleFilter.filter(v) == True
+            if RuleFilter.filter(v.get_src(), v.get_skip_internal_filter()) == True
         ]
         for item in target:
             item.set_status(Base.TranslationStatus.EXCLUDED)
@@ -345,7 +346,7 @@ class Translator(Base):
         source_language = self.config.get("source_language")
         target = [
             v for v in items
-            if LanguageFilter.filter(v, source_language) == True
+            if LanguageFilter.filter(v.get_src(), source_language) == True
         ]
         for item in target:
             item.set_status(Base.TranslationStatus.EXCLUDED)

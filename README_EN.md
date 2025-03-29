@@ -53,7 +53,7 @@
 - Text Tutorial
   - [Basic Tutorial](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 Step-by-step tutorial, easy to follow, a must-read for beginners`
 - Video Tutorial
-  - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
+  - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=NbpyL2fMgDc)
 - Advance Tutorial
   - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-%E2%80%90-EN)
   - [ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)　　[Expert Config](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
@@ -74,6 +74,15 @@
   - [Translator++](https://dreamsavior.net/translator-plusplus) project (.trans)
   - [Translator++](https://dreamsavior.net/translator-plusplus) exports (.xlsx)
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
+
+## Recent Updates 📅
+- 20250328 v0.18.5
+  - OPT - Normalization rule update
+    - Can now correctly process phonetic text in `WOLF` Game `\r[漢字,かんじ]`
+  - OPT - Can continue translation when there is untranslated text remaining
+
+- 20250327 v0.18.3
+  - OPT - [Translator++](https://dreamsavior.net/translator-plusplus) project file (.trans) translation rule update
 
 ## Recent Updates 📅
 - 20250325 v0.18.2
