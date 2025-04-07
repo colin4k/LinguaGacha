@@ -5,6 +5,7 @@ import threading
 import opencc
 import rapidjson as json
 from rich import box
+from rich import markup
 from rich.table import Table
 from rich.console import Console
 
@@ -13,8 +14,10 @@ from base.BaseLanguage import BaseLanguage
 from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
 from module.Cache.CacheManager import CacheManager
+from module.Fixer.CodeFixer import CodeFixer
 from module.Fixer.KanaFixer import KanaFixer
 from module.Fixer.EscapeFixer import EscapeFixer
+from module.Fixer.NumberFixer import NumberFixer
 from module.Fixer.HangeulFixer import HangeulFixer
 from module.Fixer.PunctuationFixer import PunctuationFixer
 from module.Response.ResponseChecker import ResponseChecker
@@ -75,6 +78,7 @@ class TranslatorTask(Base):
                 ResponseChecker.Error.LINE_ERROR_KANA: Localizer.get().response_checker_line_error_kana,
                 ResponseChecker.Error.LINE_ERROR_HANGEUL: Localizer.get().response_checker_line_error_hangeul,
                 ResponseChecker.Error.LINE_ERROR_FAKE_REPLY: Localizer.get().response_checker_line_error_fake_reply,
+                ResponseChecker.Error.LINE_ERROR_EMPTY_LINE: Localizer.get().response_checker_line_error_empty_line,
                 ResponseChecker.Error.LINE_ERROR_SIMILARITY: Localizer.get().response_checker_line_error_similarity,
                 ResponseChecker.Error.LINE_ERROR_DEGRADATION: Localizer.get().response_checker_line_error_degradation,
             }
@@ -109,7 +113,6 @@ class TranslatorTask(Base):
         # 如果请求结果标记为 skip，即有错误发生，则跳过本次循环
         if skip == True:
             return {
-                "check_result": [ResponseChecker.Error.UNKNOWN],
                 "row_count": 0,
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
@@ -145,9 +148,10 @@ class TranslatorTask(Base):
             console_log.append(response_decode_log) if LogHelper.is_debug() else None
 
         # 如果有任何正确的条目，则处理结果
+        updated_count = 0
         if any(v == ResponseChecker.Error.NONE for v in check_result):
             # 自动修复
-            dst_dict: dict[str, str] = self.auto_fix(src_dict, dst_dict, self.config)
+            dst_dict: dict[str, str] = self.auto_fix(src_dict, dst_dict, item_dict)
 
             # 代码救星后处理
             dst_dict = self.code_saver.post_process(src_dict, dst_dict)
@@ -163,7 +167,6 @@ class TranslatorTask(Base):
                 self.merge_glossary(glossary_auto)
 
             # 更新缓存数据
-            updated_count = 0
             dst_sub_lines = list(dst_dict.values())
             check_result_lines = check_result.copy()
             for item in self.items:
@@ -186,16 +189,14 @@ class TranslatorTask(Base):
         )
 
         # 返回任务结果
-        if any(v == ResponseChecker.Error.NONE for v in check_result):
+        if updated_count > 0:
             return {
-                "check_result": None,
                 "row_count": updated_count,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
             }
         else:
             return {
-                "check_result": check_result,
                 "row_count": 0,
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
@@ -297,7 +298,7 @@ class TranslatorTask(Base):
             return {k: TranslatorTask.OPENCCT2S.convert(v) for k, v in data.items()}
 
     # 自动修复
-    def auto_fix(self, src_dict: dict[str, str], dst_dict: dict[str, str], config: dict) -> dict:
+    def auto_fix(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem]) -> dict:
         source_language = self.config.get("source_language")
         target_language = self.config.get("target_language")
 
@@ -313,8 +314,14 @@ class TranslatorTask(Base):
             elif source_language == BaseLanguage.KO:
                 dst_dict[k] = HangeulFixer.fix(dst_dict[k])
 
+            # 代码修复
+            dst_dict[k] = CodeFixer.fix(src_dict[k], dst_dict[k], item_dict.get(k).get_text_type())
+
             # 转义修复
             dst_dict[k] = EscapeFixer.fix(src_dict[k], dst_dict[k])
+
+            # 数字修复
+            dst_dict[k] = NumberFixer.fix(src_dict[k], dst_dict[k])
 
             # 标点符号修复
             dst_dict[k] = PunctuationFixer.fix(src_dict[k], dst_dict[k], source_language, target_language)
@@ -362,18 +369,18 @@ class TranslatorTask(Base):
 
         # 伪造预回复，可以更好的回避模型的安全限制
         # DeepSeek R1、 Claude 思考模式 不兼容此方法
-        model: str = self.platform.get("model").lower()
-        thinking: str = self.platform.get("thinking")
-        api_format: str = self.platform.get("api_format")
-        if "deepseek" in model and ("r1" in model or "reasoner" in model):
-            pass
-        elif api_format == "Anthropic" and thinking == True:
-            pass
-        else:
-            messages.append({
-                "role": "assistant",
-                "content": self.prompt_builder.build_fake_reply(),
-            })
+        # model: str = self.platform.get("model").lower()
+        # thinking: str = self.platform.get("thinking")
+        # api_format: str = self.platform.get("api_format")
+        # if "deepseek" in model and ("r1" in model or "reasoner" in model):
+        #     pass
+        # elif api_format == "Anthropic" and thinking == True:
+        #     pass
+        # else:
+        #     messages.append({
+        #         "role": "assistant",
+        #         "content": self.prompt_builder.build_fake_reply(),
+        #     })
 
         # 当目标为 google 系列接口时，转换 messages 的格式
         if self.platform.get("api_format") == Base.APIFormat.GOOGLE:
@@ -463,7 +470,7 @@ class TranslatorTask(Base):
         console_log.insert(0, message)
 
         # 写入日志到文件
-        file_rows = self.generate_log_rows(srcs, dsts, file_log, highlight = False)
+        file_rows = self.generate_log_rows(srcs, dsts, file_log, console = False)
         log_func("\n" + "\n\n".join(file_rows) + "\n", file = True, console = False)
 
         # 根据线程数判断是否需要打印表格
@@ -475,11 +482,11 @@ class TranslatorTask(Base):
                 console = True,
             )
         else:
-            console_rows = self.generate_log_rows(srcs, dsts, console_log, highlight = True)
+            console_rows = self.generate_log_rows(srcs, dsts, console_log, console = True)
             TranslatorTask.CONSOLE.print(self.generate_log_table(console_rows, style))
 
     # 生成日志行
-    def generate_log_rows(self, srcs: list[str], dsts: list[str], extra: list[str], highlight: bool) -> tuple[list[str], str]:
+    def generate_log_rows(self, srcs: list[str], dsts: list[str], extra: list[str], console: bool) -> tuple[list[str], str]:
         rows = []
 
         # 添加额外日志
@@ -489,10 +496,10 @@ class TranslatorTask(Base):
         # 原文译文对比
         pair = ""
         for src, dst in itertools.zip_longest(srcs, dsts, fillvalue = ""):
-            if highlight == False:
+            if console == False:
                 pair = pair + "\n" + f"{src} --> {dst}"
             else:
-                pair = pair + "\n" + f"{src} [bright_blue]-->[/] {dst}"
+                pair = pair + "\n" + f"{markup.escape(src)} [bright_blue]-->[/] {markup.escape(dst)}"
         rows.append(pair.strip())
 
         return rows

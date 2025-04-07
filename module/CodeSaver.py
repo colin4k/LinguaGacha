@@ -10,11 +10,7 @@ class CodeSaver(Base):
         r"\\n",                                                                     # 换行符 \\n
         r"\\\\<br>",                                                                # 换行符 \\<br>
         r"<br>",                                                                    # 换行符 <br>
-        r"\u3000",                                                                  # 全角空格
-        r"\u0020",                                                                  # 半角空格
-        r"\r",                                                                      # 换行符
-        r"\n",                                                                      # 换行符
-        r"\t",                                                                      # 制表符
+        r"[\s\u3000]",                                                              # 空白字符（包含全角空格）
     )
 
     # 用于 RenPy 的规则
@@ -24,13 +20,13 @@ class CodeSaver(Base):
     )
 
     # 用于 WOLF 和 RPGMaker 的规则
-    # \c[17]【\V[47] G】\c[0]払うからさ？　なぁ、頼むよ。
     RE_CODE_WOLF_RPGMAKER = (
         r"en\(.{0,8}[vs]\[\d+\].{0,16}\)",                                          # en(!s[982]) en(v[982] >= 1)
         r"if\(.{0,8}[vs]\[\d+\].{0,16}\)",                                          # if(!s[982]) if(v[982] >= 1)
         r"[<【]{0,1}[/\\][a-z]{1,8}[<\[][a-z\d]{0,16}[>\]][>】]{0,1}",              # /c[xy12] \bc[xy12] <\bc[xy12]>【/c[xy12]】
         r"[/\\][a-z]{1,8}(?=<.{0,16}>|\[.{0,16}\])",                                # /C<> \FS<> /C[] \FS[] 中 <> [] 前的部分
         r"%\d+",                                                                    # %1
+        r"\\E",                                                                     # WOLF
         r"@\d+",                                                                    # WOLF - 角色 ID
         r"\\cdb\[.+?:.+?:.+?\]",                                                    # WOLF - 数据库变量 \cdb[0:1:2] \sdb[\cself[90]:\cself[10]:17] sda
         r"\\udb\[.+?:.+?:.+?\]",                                                    # WOLF - 数据库变量 \cdb[0:1:2] \sdb[\cself[90]:\cself[10]:17] sda
@@ -59,13 +55,11 @@ class CodeSaver(Base):
     RE_PREFIX_NONE = re.compile(rf"^(?:{"|".join(RE_CODE_NONE)})+", re.IGNORECASE)
     RE_SUFFIX_NONE = re.compile(rf"(?:{"|".join(RE_CODE_NONE)})+$", re.IGNORECASE)
 
-    RE_CHECK_RENPY = re.compile(rf"(?:{"|".join(RE_CODE_RENPY)})+", re.IGNORECASE)
-    RE_BASE_RENPY = re.compile(rf"{"|".join(RE_CODE_RENPY + RE_CODE_NONE)}", re.IGNORECASE)
+    RE_CHECK_RENPY = re.compile(rf"{"|".join(RE_CODE_RENPY)}", re.IGNORECASE)
     RE_PREFIX_RENPY = re.compile(rf"^(?:{"|".join(RE_CODE_RENPY + RE_CODE_NONE)})+", re.IGNORECASE)
     RE_SUFFIX_RENPY = re.compile(rf"(?:{"|".join(RE_CODE_RENPY + RE_CODE_NONE)})+$", re.IGNORECASE)
 
-    RE_CHECK_WOLF_RPGMAKER = re.compile(rf"(?:{"|".join(RE_CODE_WOLF_RPGMAKER)})+", re.IGNORECASE)
-    RE_BASE_WOLF_RPGMAKER = re.compile(rf"{"|".join(RE_CODE_WOLF_RPGMAKER + RE_CODE_NONE)}", re.IGNORECASE)
+    RE_CHECK_WOLF_RPGMAKER = re.compile(rf"{"|".join(RE_CODE_WOLF_RPGMAKER)}", re.IGNORECASE)
     RE_PREFIX_WOLF_RPGMAKER = re.compile(rf"^(?:{"|".join(RE_CODE_WOLF_RPGMAKER + RE_CODE_NONE)})+", re.IGNORECASE)
     RE_SUFFIX_WOLF_RPGMAKER = re.compile(rf"(?:{"|".join(RE_CODE_WOLF_RPGMAKER + RE_CODE_NONE)})+$", re.IGNORECASE)
 
@@ -113,7 +107,7 @@ class CodeSaver(Base):
             src_dict[k] = CodeSaver.PLACEHOLDER
             self.placeholders.add(k)
 
-        return CodeSaver.RE_CHECK_RENPY.findall(src_dict.get(k))
+        return CodeSaver.RE_PREFIX_NONE.findall(src_dict.get(k))
 
     # 预处理 - RenPy
     def pre_process_renpy(self, k: str, src_dict: dict[str, str]) -> list[str]:
@@ -188,9 +182,5 @@ class CodeSaver(Base):
         else:
             x = []
             y = []
-
-        # 移除空白符和空条目
-        x = [CodeSaver.RE_BLANK.sub("", v) for v in x if CodeSaver.RE_BLANK.sub("", v) != ""]
-        y = [CodeSaver.RE_BLANK.sub("", v) for v in y if CodeSaver.RE_BLANK.sub("", v) != ""]
 
         return x == y

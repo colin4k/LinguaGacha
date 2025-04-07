@@ -46,21 +46,21 @@
   - 将要翻译的文本文件复制到输入文件夹（默认为 `input` 文件夹），在 `开始翻译` 中点击开始翻译
 
 ## 使用教程 📝
-- 图文教程
+- 综合
   - [基础教程](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 手把手教学，有手就行，新手必看`
-- 视频教程
-  - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
-- 进阶教程
-  - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
-  - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)　　[专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)
-  - [MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
   - [高质量翻译 WOLF 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLF)
   - [高质量翻译 RenPy 引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRenPy)
   - [高质量翻译 RPGMaker 系列引擎游戏的最佳实践](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker)
+- 视频教程
+  - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=wtV_IODzi8I)
+- 功能说明
+  - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)
+  - [批量修正](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection)　　[部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)
+  - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)　　[角色姓名注入](https://github.com/neavo/LinguaGacha/wiki/NameInjection)　　[MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
 
 ## 文本格式 🏷️
-- 在任务开始时，`LG` 将读取输入文件夹（及其子目录）内所有支持的文件，包括但是不限于：
+- 在任务开始时，应用将读取输入文件夹（及其子目录）内所有支持的文件，包括但是不限于：
   - 字幕（.srt .ass）
   - 电子书（.txt .epub）
   - Markdown（.md）
@@ -70,41 +70,38 @@
   - [VNTextPatch](https://github.com/arcusmaximus/VNTranslationTools) 导出游戏文本（.json）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans）
   - [Translator++](https://dreamsavior.net/translator-plusplus) 导出游戏文本（.xlsx）
+  - [WOLF 官方翻译工具](https://silversecond.booth.pm/items/5151747) 导出游戏文本（.xlsx）
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
-- 20250329 v0.19.0
+- 20250405 v0.21.2
+  - 调整 - 优化模型返回结果稳定性
+  - 调整 - 优化 [批量修正](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection) 换行符兼容性
+
+- 20250404 v0.21.1
+  - 细节调整与优化，包括但是不限于：
+    - 标点修复规则优化
+    - 支持带 `names` 字段的 GalGame 文本
+
+- 20250404 v0.21.0
+  - 新增 - [批量修正](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection) 功能
+    - 一次性对检查报告中的错误进行批量修正
+  - 调整 - 优化标点修复规则
+    - 现在可以更稳定的还原原文中的标点符号了
+
+- 20250404 v0.20.0
+  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 规则更新
+    - 支持 [WOLF 官方翻译工具导出文本](https://silversecond.booth.pm/items/5151747)（.xlsx）
+    - 重构了对 `WOLF` 引擎的支持，扩大了支持的引擎版本范围，详见 [Wiki](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLF)
+
+- 20250330 v0.19.2
+  - 一些预处理与后处理流程的优化，包括：
+    - 绝大部分句子首尾的 `‘’` `“”` `「」` 可以正确修复了
+    - 模型幻觉产生多余代码时可以自动修复了
+
+- 20250329 v0.19.1
   - 新增 - 完全重构的控制字符保留功能
     - 实测大部分 `WOLF` `RenPy` `RPGMaker` 游戏中可以实现近似于 `100%` 的代码保留率
-
-- 20250328 v0.18.5
-  - 调整 - 规范化规则更新
-    - 可以正确处理 `WOLF` 游戏中的注音文本了 `\r[漢字,かんじ]`
-  - 调整 - 尚有未翻译文本时，可以继续翻译
-
-- 20250327 v0.18.3
-  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 翻译规则更新
-
-- 20250325 v0.18.2
-  - 新增 - 转义修复 规则
-  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 翻译规则更新
-  - 修正 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 有时会导出失败的问题
-
-- 20250323 v0.18.1
-  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)（结果检查 - 重试次数达到阈值）
-  - 调整 - [Translator++](https://dreamsavior.net/translator-plusplus) 项目文件（.trans） 翻译规则更新
-    - 显著减少了 `WOLF` `RPGMaker` 引擎游戏中未翻译的文本
-  - 调整 - 移除 `强制翻译` 属性
-
-- 20250322 v0.18.0
-  - 新增 - `WOLF` 引擎的 T++ 项目文件（.trans）相关规则
-    - 大部分 `WOLF` 引擎游戏可即翻即玩
-    - 存在少量漏翻情况
-    - 教程将稍后奉上
-  - 新增 - [专家设置](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig)（双语输出文件中重复行去重）
-  - 修正 - [部分重翻](https://github.com/neavo/LinguaGacha/wiki/ReTranslation)、[增量翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation) 时结果检查范围异常的问题
-  - **提醒** - 使用自动更新时，有时会提示 `updater.exe` 被占用
-    - 这是已知 BUG，不影响正常更新，无视它即可
 
 ## 常见问题 📥
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) 与 [AiNiee](https://github.com/NEKOparapa/AiNiee) 的关系
