@@ -10,7 +10,7 @@ class MD(Base):
     RE_MD_IMAGE = re.compile(r"!\[.*?\]\(.*?\)")
 
     # 修正用于匹配数学公式的正则表达式 - 先匹配双美元符号再匹配单美元符号
-    RE_MATH_FORMULA = re.compile(r"\$\$(.*?)\$\$|\$(.*?)\$", re.DOTALL)
+    #RE_MATH_FORMULA = re.compile(r"\$\$(.*?)\$\$|\$(.*?)\$", re.DOTALL)
 
     def __init__(self, config: dict) -> None:
         super().__init__()
@@ -53,8 +53,8 @@ class MD(Base):
                         in_code_block or                             # 在代码块内
                         line.startswith("```") or                    # 代码块标记行
                         line.startswith("!(data:image/jpeg;base64") or  # base64图片数据
-                        self.RE_MD_IMAGE.search(line) is not None or    # 图片语法 ![](...)
-                        self.RE_MATH_FORMULA.search(line) is not None   # 数学公式 $$ ... $$ 或 $ ... $
+                        self.RE_MD_IMAGE.search(line) is not None  
+                        #self.RE_MATH_FORMULA.search(line) is not None   
                     )
                     
                     status = Base.TranslationStatus.EXCLUDED if should_exclude else Base.TranslationStatus.UNTRANSLATED
