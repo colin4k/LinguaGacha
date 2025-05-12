@@ -3,7 +3,6 @@ import sys
 import ctypes
 import traceback
 
-import rapidjson as json
 from rich.console import Console
 from PyQt5.QtGui import QFont
 from PyQt5.QtGui import QIcon
@@ -12,12 +11,11 @@ from PyQt5.QtWidgets import QApplication
 from qfluentwidgets import Theme
 from qfluentwidgets import setTheme
 
-from base.BaseLanguage import BaseLanguage
+from base.LogManager import LogManager
+from module.Config import Config
 from module.Platform.PlatformTester import PlatformTester
 from module.Localizer.Localizer import Localizer
-from module.LogHelper import LogHelper
 from module.Translator.Translator import Translator
-from module.ExpertConfig import ExpertConfig
 from module.VersionManager import VersionManager
 from frontend.AppFluentWindow import AppFluentWindow
 
@@ -29,17 +27,7 @@ def excepthook(exc_type, exc_value, exc_traceback) -> None:
         return
 
     # 使用LogHelper记录异常信息
-    LogHelper.error(f"{Localizer.get().log_crash}\n{"".join(traceback.format_exception(exc_type, exc_value, exc_traceback)).strip()}")
-
-# 载入配置文件
-def load_config() -> dict:
-    config = {}
-
-    if os.path.exists("resource/config.json"):
-        with open("resource/config.json", "r", encoding = "utf-8-sig") as reader:
-            config = json.load(reader)
-
-    return config
+    LogManager.error(f"{Localizer.get().log_crash}\n{"".join(traceback.format_exception(exc_type, exc_value, exc_traceback)).strip()}")
 
 if __name__ == "__main__":
     # 捕获全局异常
@@ -62,9 +50,10 @@ if __name__ == "__main__":
             kernel32.SetConsoleMode(hStdin, mode)
 
     # 启用了高 DPI 缩放
+    # 1. 全局缩放使能 (Enable High DPI Scaling)
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+    # 2. 适配非整数倍缩放 (Adapt non-integer scaling)
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
     # 设置工作目录
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -74,32 +63,43 @@ if __name__ == "__main__":
     os.makedirs("./input", exist_ok=True)
     os.makedirs("./output", exist_ok=True)
 
-    # 载入配置文件
-    config = load_config()
+    # 载入并保存默认配置
+    config = Config().load()
 
     # 加载版本号
     with open("version.txt", "r", encoding="utf-8-sig") as reader:
         version = reader.read().strip()
 
     # 设置主题
-    setTheme(Theme.DARK if config.get("theme", "light") == "dark" else Theme.LIGHT)
+    setTheme(Theme.DARK if config.theme == "dark" else Theme.LIGHT)
 
     # 设置应用语言
-    Localizer.set_app_language(config.get("app_language", BaseLanguage.ZH))
+    Localizer.set_app_language(config.app_language)
 
     # 打印日志
-    LogHelper.info(f"LinguaGacha {version}")
-    LogHelper.debug(Localizer.get().log_debug_mode) if LogHelper.is_debug() else None
+    LogManager.info(f"LinguaGacha {version}")
+    LogManager.info(Localizer.get().log_expert_mode) if LogManager.is_expert_mode() else None
+
+    # 网络代理
+    if config.proxy_enable == False or config.proxy_url == "":
+        os.environ.pop("http_proxy", None)
+        os.environ.pop("https_proxy", None)
+    else:
+        LogManager.info(Localizer.get().log_proxy)
+        os.environ["http_proxy"] = config.proxy_url
+        os.environ["https_proxy"] = config.proxy_url
 
     # 设置全局缩放比例
-    if config.get("scale_factor", "") == "50%":
+    if config.scale_factor == "50%":
         os.environ["QT_SCALE_FACTOR"] = "0.50"
-    elif config.get("scale_factor", "") == "75%":
+    elif config.scale_factor == "75%":
         os.environ["QT_SCALE_FACTOR"] = "0.75"
-    elif config.get("scale_factor", "") == "150%":
+    elif config.scale_factor == "150%":
         os.environ["QT_SCALE_FACTOR"] = "1.50"
-    elif config.get("scale_factor", "") == "200%":
+    elif config.scale_factor == "200%":
         os.environ["QT_SCALE_FACTOR"] = "2.00"
+    else:
+        os.environ.pop("QT_SCALE_FACTOR", None)
 
     # 创建全局应用对象
     app = QApplication(sys.argv)
@@ -108,15 +108,12 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon("resource/icon_no_bg.png"))
 
     # 设置全局字体属性，解决狗牙问题
-    font = QFont("Consolas")
-    if config.get("font_hinting", True) == True:
-        font.setHintingPreference(QFont.PreferFullHinting)
+    font = QFont()
+    if config.font_hinting == True:
+        font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     else:
-        font.setHintingPreference(QFont.PreferNoHinting)
+        font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
     app.setFont(font)
-
-    # 初始化实例
-    ExpertConfig.get()
 
     # 创建翻译器
     translator = Translator()

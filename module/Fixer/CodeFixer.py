@@ -3,7 +3,8 @@ import re
 from rich import print
 
 from module.Cache.CacheItem import CacheItem
-from module.CodeSaver import CodeSaver
+from module.Config import Config
+from module.TextPreserver import TextPreserver
 
 class CodeFixer():
 
@@ -12,19 +13,16 @@ class CodeFixer():
 
     # 检查并替换
     @classmethod
-    def fix(cls, src: str, dst: str, text_type: str) -> str:
-        if text_type == CacheItem.TextType.RENPY:
-            rule: re.Pattern = CodeSaver.RE_BASE_RENPY
-            src_codes = rule.findall(src)
-            dst_codes = rule.findall(dst)
-        elif text_type in (CacheItem.TextType.WOLF, CacheItem.TextType.RPGMAKER):
-            rule: re.Pattern = CodeSaver.RE_BASE_WOLF_RPGMAKER
-            src_codes = rule.findall(src)
-            dst_codes = rule.findall(dst)
-        else:
-            rule: re.Pattern = None
-            src_codes = []
-            dst_codes = []
+    def fix(cls, src: str, dst: str, text_type: str, config: Config) -> str:
+        src_codes: list[str] = []
+        dst_codes: list[str] = []
+        rule: re.Pattern = TextPreserver(config).get_re_sample(
+            custom_enable = config.text_preserve_enable,
+            text_type = text_type,
+        )
+        if rule is not None:
+            src_codes = [v.group(0) for v in rule.finditer(src) if v.group(0).strip() != ""]
+            dst_codes = [v.group(0) for v in rule.finditer(dst) if v.group(0).strip() != ""]
 
         if src_codes == dst_codes:
             return dst
@@ -42,12 +40,15 @@ class CodeFixer():
 
     @classmethod
     def repl(cls, m: re.Match, i: list[int], mismatchs: list[int]) -> str:
-        if i[0] in mismatchs:
+        text: str = m.group(0)
+        if text.strip() == "":
+            return text
+        elif i[0] in mismatchs:
             i[0] = i[0] + 1
             return ""
         else:
             i[0] = i[0] + 1
-            return m.group(0)
+            return text
 
     # 判断是否是有序子集，并输出 y 中多余元素的索引
     @classmethod
@@ -81,8 +82,8 @@ class CodeFixer():
         return True, mismatchs
 
     @classmethod
-    def test(cls) -> None:
+    def test(cls, config: Config) -> None:
         x = "合計　\\V[62]！　やったやった♪　私の勝ちね！\n\\c[17]――レナリスの勝ち！　【３０００ G】手に入れた！\\c[0]\n\\$"
         y = "总计　\\V[62]！　哈哈！　我赢了！\n\\c[17]――雷纳里斯赢了！ 获得了\\c[2]【3000 G】\\c[0]！\\c[0]\n\\$"
-        z = cls().fix(x, y, CacheItem.TextType.RPGMAKER)
+        z = cls().fix(x, y, CacheItem.TextType.RPGMAKER, config)
         print(f"{repr(x)}\n{repr(y)}\n{repr(z)}")

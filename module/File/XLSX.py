@@ -4,25 +4,27 @@ import openpyxl
 import openpyxl.worksheet.worksheet
 
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
 from module.Cache.CacheItem import CacheItem
-from module.XLSXHelper import XLSXHelper
+from module.Config import Config
+from module.TableManager import TableManager
 
 class XLSX(Base):
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
 
         # 初始化
-        self.config: dict = config
-        self.input_path: str = config.get("input_folder")
-        self.output_path: str = config.get("output_folder")
-        self.source_language: str = config.get("source_language")
-        self.target_language: str = config.get("target_language")
+        self.config = config
+        self.input_path: str = config.input_folder
+        self.output_path: str = config.output_folder
+        self.source_language: BaseLanguage.Enum = config.source_language
+        self.target_language: BaseLanguage.Enum = config.target_language
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
-        items = []
-        for abs_path in set(abs_paths):
+        items:list[CacheItem] = []
+        for abs_path in abs_paths:
             # 获取相对路径
             rel_path = os.path.relpath(abs_path, self.input_path)
 
@@ -49,6 +51,7 @@ class XLSX(Base):
 
                 src = str(src)
                 dst = str(dst) if dst is not None else ""
+
                 if src == "":
                     items.append(
                         CacheItem({
@@ -92,12 +95,12 @@ class XLSX(Base):
             if item.get_file_type() == CacheItem.FileType.XLSX
         ]
 
-        data: dict[str, list[str]] = {}
+        group: dict[str, list[str]] = {}
         for item in target:
-            data.setdefault(item.get_file_path(), []).append(item)
+            group.setdefault(item.get_file_path(), []).append(item)
 
         # 分别处理每个文件
-        for rel_path, items in data.items():
+        for rel_path, items in group.items():
             # 按行号排序
             items = sorted(items, key = lambda x: x.get_row())
 
@@ -112,8 +115,8 @@ class XLSX(Base):
             # 将数据写入工作表
             for item in items:
                 row: int = item.get_row()
-                XLSXHelper.set_cell_value(sheet, row, column = 1, value = item.get_src())
-                XLSXHelper.set_cell_value(sheet, row, column = 2, value = item.get_dst())
+                TableManager.set_cell_value(sheet, row, column = 1, value = item.get_src())
+                TableManager.set_cell_value(sheet, row, column = 2, value = item.get_dst())
 
             # 保存工作簿
             abs_path = f"{self.output_path}/{rel_path}"

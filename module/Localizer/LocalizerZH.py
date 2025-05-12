@@ -1,6 +1,6 @@
 
 
-class LocalizerBase():
+class LocalizerZH():
 
     # 保留
     switch_language: str = (
@@ -31,15 +31,13 @@ class LocalizerBase():
     auto: str = "自动"
     wiki: str = "功能说明"
     inject: str = "注入"
+    filter: str = "过滤"
+    generate: str = "生成"
     task_success: str = "任务执行成功 …"
     task_failure: str = "任务执行失败 …"
     alert_no_data: str = "没有有效数据 …"
     alert_reset_timer: str = "将重置定时器，是否确认 … ？"
     alert_reset_translation: str = "将重置尚未完成的翻译任务，是否确认开始新的翻译任务 … ？"
-    select_file: str = "选择文件"
-    select_file_type: str = "支持的数据格式 (*.json *.xlsx)"
-    table_delete_row: str = "删除行"
-    table_insert_row: str = "插入行"
 
     # 主页面
     app_close_message_box: str = "确定是否退出程序 … ？"
@@ -58,32 +56,37 @@ class LocalizerBase():
     app_project_page: str = "项目设置"
     app_translation_page: str = "开始翻译"
     app_basic_settings_page: str = "基础设置"
-    app_advance_Feature_page: str = "高级功能"
+    app_expert_settings_page: str = "专家设置"
     app_glossary_page: str = "术语表"
+    app_text_preserve_page: str = "文本保护"
+    app_text_replacement_page: str = "文本替换"
     app_pre_translation_replacement_page: str = "译前替换"
     app_post_translation_replacement_page: str = "译后替换"
     app_custom_prompt_navigation_item: str = "自定义提示词"
     app_custom_prompt_zh_page: str = "中文提示词"
     app_custom_prompt_en_page: str = "英文提示词"
-    app_tool_box_page: str = "百宝箱"
+    app_laboratory_page: str = "实验室"
+    app_treasure_chest_page: str = "百宝箱"
 
     # 路径
     path_bilingual: str = "双语对照"
     path_glossary_export: str = "导出_术语表"
+    path_text_preserve_export: str = "导出_文本保护"
     path_pre_translation_replacement_export: str = "导出_译前替换"
     path_post_translation_replacement_export: str = "导出_译后替换"
     path_result_check_kana: str = "结果检查_假名残留.json"
     path_result_check_hangeul: str = "结果检查_谚文残留.json"
-    path_result_check_code: str = "结果检查_代码错误.json"
+    path_result_check_text_preserve: str = "结果检查_文本保护.json"
     path_result_check_similarity: str = "结果检查_相似度较高.json"
     path_result_check_glossary: str = "结果检查_术语表未生效.json"
     path_result_check_untranslated: str = "结果检查_未翻译的条目.json"
     path_result_check_retry_count_threshold: str = "结果检查_重试次数达到阈值.json"
     path_result_batch_correction: str = "批量修正.xlsx"
+    path_result_name_field_extraction: str = "姓名字段提取.xlsx"
 
     # 日志
-    log_debug_mode: str = "调试模式已启用 …"
-    log_config_file_not_exist: str = "配置文件不存在 …"
+    log_proxy: str = "网络代理已启用 …"
+    log_expert_mode: str = "专家模式已启用 …"
     log_api_test_fail: str = "接口测试失败 … "
     log_task_fail: str = "翻译任务失败 …"
     log_read_file_fail: str = "文件读取失败 …"
@@ -97,8 +100,7 @@ class LocalizerBase():
     translator_api_url: str = "接口地址"
     translator_name: str = "接口名称"
     translator_model: str = "模型名称"
-    translator_proxy_url: str = "生效中的 网络代理"
-    translator_begin: str = "即将开始执行翻译任务，预计任务总数为 {TASKS}, 并发任务数为 {BATCH_SIZE}，请注意保持网络通畅 …"
+    translator_begin: str = "即将开始执行翻译任务，预计任务总数为 {TASKS}, 请注意保持网络通畅 …"
     translator_writing: str = "正在写入翻译数据，等稍候 …"
     translator_done: str = "所有文本均已翻译，翻译任务已结束 …"
     translator_fail: str = "已到最大翻译轮次，仍有部分文本未翻译，请检查翻译结果 …"
@@ -121,10 +123,10 @@ class LocalizerBase():
     file_checker_kana_full: str = "已完成假名残留检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
     file_checker_hangeul: str = "已完成谚文残留检查，未发现异常条目 …"
     file_checker_hangeul_full: str = "已完成谚文残留检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
-    file_checker_code: str = "已完成代码错误检查，未发现异常条目 …"
-    file_checker_code_full: str = "已完成代码错误检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
-    file_checker_code_alert_key: str = "____提醒____"
-    file_checker_code_alert_value: str = "本文件内列出的是 **可能** 存在代码错误的条目，请结合上下文语境进行实际判断！"
+    file_checker_text_preserve: str = "已完成文本保护检查，未发现异常条目 …"
+    file_checker_text_preserve_full: str = "已完成文本保护检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
+    file_checker_text_preserve_alert_key: str = "____提醒____"
+    file_checker_text_preserve_alert_value: str = "本文件内列出的是文本保护 **可能** 未生效的条目，请结合上下文语境进行实际判断！"
     file_checker_similarity: str = "已完成相似度异常检查，未发现异常条目 …"
     file_checker_similarity_full: str = "已完成相似度异常检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
     file_checker_similarity_alert_key: str = "____提醒____"
@@ -132,10 +134,9 @@ class LocalizerBase():
     file_checker_glossary: str = "已完成未生效术语检查，未发现异常条目 …"
     file_checker_glossary_full: str = "已完成未生效术语检查，发现 {COUNT} 个异常条目，占比为 {PERCENT} %，结果已写入 [green]{TARGET}[/] …"
     platofrm_tester_key: str = "正在测试密钥"
-    platofrm_tester_proxy: str = "网络代理已启动，代理地址："
-    platofrm_tester_messages: str = "正在发送提示词"
-    platofrm_tester_response_think: str = "模型思考内容"
-    platofrm_tester_response_result: str = "模型返回结果"
+    platofrm_tester_messages: str = "任务提示词："
+    platofrm_tester_response_think: str = "模型思考内容："
+    platofrm_tester_response_result: str = "模型返回结果："
     platofrm_tester_result: str = "共测试 {COUNT} 个接口，成功 {SUCCESS} 个，失败 {FAILURE} 个 …"
     platofrm_tester_running: str = "任务正在执行中，请稍后再试 …"
     response_checker_unknown: str = "未知"
@@ -153,15 +154,16 @@ class LocalizerBase():
     response_decoder_translation_by_rule: str = "翻译数据 -> 拆分后规则解析，共 {COUNT} 条"
 
     # 应用设置
-    app_settings_page_proxy_url: str = "请输入网络代理地址 …"
-    app_settings_page_proxy_url_title: str = "网络代理"
-    app_settings_page_proxy_url_content: str = "启用该功能后，将使用设置的代理地址向接口发送请求，例如 http://127.0.0.1:7890"
+    app_settings_page_expert_title: str = "专家模式"
+    app_settings_page_expert_content: str = "启用此功能后，将显示更多日志信息并提供更多高级设置选项（将在应用重启后生效）"
     app_settings_page_font_hinting_title: str = "字体优化"
     app_settings_page_font_hinting_content: str = "启用此功能后，应用内 UI 字体的边缘渲染将更加圆润（将在应用重启后生效）"
-    app_settings_page_debug_title: str = "调试模式"
-    app_settings_page_debug_content: str = "启用此功能后，应用将显示额外的调试信息"
     app_settings_page_scale_factor_title: str = "全局缩放比例"
     app_settings_page_scale_factor_content: str = "启用此功能后，应用界面将按照所选比例进行缩放（将在应用重启后生效）"
+    app_settings_page_proxy_url: str = "请输入网络代理地址 …"
+    app_settings_page_proxy_url_title: str = "网络代理"
+    app_settings_page_proxy_url_content: str = "启用此功能后，将使用设置的代理地址发送网络请求，例如 http://127.0.0.1:7890"
+    app_settings_page_close: str = "应用即将关闭，请确认 …"
 
     # 接口管理
     platform_page_api_test_result: str = "接口测试结果：成功 {SUCCESS} 个，失败 {FAILURE} 个 …"
@@ -184,7 +186,7 @@ class LocalizerBase():
     platform_edit_page_api_key_title: str = "接口密钥"
     platform_edit_page_api_key_content: str = "请输入接口密钥，例如 sk-d0daba12345678fd8eb7b8d31c123456，填入多个密钥可以轮询使用，每行一个"
     platform_edit_page_thinking_title: str = "优先使用思考模式"
-    platform_edit_page_thinking_content: str = "对于同时支持思考模式和普通模式的模型，优先使用思考模式，目前只有 Claude Sonnet 3.7 支持此功能"
+    platform_edit_page_thinking_content: str = "对于同时支持思考模式和普通模式的模型，优先使用思考模式"
     platform_edit_page_model: str = "请输入模型名称 …"
     platform_edit_page_model_title: str = "模型名称"
     platform_edit_page_model_content: str = "当前使用的模型为 {MODEL}"
@@ -242,42 +244,79 @@ class LocalizerBase():
     translation_page_timer: str = "请设置延迟启动前要等待的时间"
 
     # 基础设置
-    basic_settings_page_batch_size_title: str = "并发任务数"
-    basic_settings_page_batch_size_content: str = (
-        "同时执行的翻译任务的最大数量，合理设置可以极大的增加翻译速度，请参考接口平台的限制进行设置，本地接口无需设置"
+    basic_settings_page_max_workers_title: str = "并发任务阈值"
+    basic_settings_page_max_workers_content: str = (
+        "同时执行的任务数量的最大值"
+        "<br>"
+        "合理设置可以显著加快任务的完成速度，请参考 API 平台的文档进行设置，0 = 自动"
         ""
         ""
     )
-    basic_settings_page_task_token_limit_title: str = "翻译任务长度阈值"
-    basic_settings_page_task_token_limit_content: str = "每个翻译任务一次性向模型发送的文本长度的最大值，单位为 Token"
-    basic_settings_page_request_timeout_title: str = "请求超时时间"
+    basic_settings_page_rpm_threshold_title: str = "每分钟任务数量阈值"
+    basic_settings_page_rpm_threshold_content: str = (
+        "每分钟执行的任务总数量的最大值，即 <font color='darkgoldenrod'><b>RPM</b></font> 阈值"
+        "<br>"
+        "合理设置可以显著加快任务的完成速度，请参考 API 平台的文档进行设置，0 = 自动"
+        ""
+        ""
+    )
+    basic_settings_page_token_threshold_title: str = "任务长度阈值"
+    basic_settings_page_token_threshold_content: str = "每个任务所包含的文本的最大 Token 数量"
+    basic_settings_page_request_timeout_title: str = "超时时间阈值"
     basic_settings_page_request_timeout_content: str = (
-        "翻译任务发起请求时等待模型回复的最长时间，超时仍未收到回复，则会判断为任务失败，单位为秒，不支持 Google 系列模型"
+        "翻译任务发起请求时等待模型回复的最长时间（秒），超时仍未收到回复，则会判断为任务失败"
         ""
         ""
     )
-    basic_settings_page_max_round_title: str = "翻译流程最大轮次"
-    basic_settings_page_max_round_content: str = "当完成一轮翻译后，如果还有未翻译的条目，将重新开始新的翻译流程，直到翻译完成或者达到最大轮次"
+    basic_settings_page_max_round_title: str = "任务轮次阈值"
+    basic_settings_page_max_round_content: str = "当完成一轮任务后，将在新的轮次中对失败的任务进行重试，直到全部完成或达到轮次阈值"
 
-    # 高级功能
-    advance_feature_page_auto_glossary_enable: str = "自动补全术语表（实验性功能，不支持 SakuraLLM 模型）"
-    advance_feature_page_auto_glossary_enable_desc: str = (
-        "启用此功能后，在翻译的同时将对文本进行分析，尝试自动补全术语表中缺失的专有名词条目"
+    # 专家设置
+    expert_settings_page_preceding_lines_threshold: str = "参考上文行数阈值"
+    expert_settings_page_preceding_lines_threshold_desc: str = "每个翻译任务最多可携带的参考上文的行数，默认 3 行"
+    expert_settings_page_preceding_disable_on_local: str = "本地接口启用参考上文"
+    expert_settings_page_preceding_disable_on_local_desc: str = "本地模型性能较差，参考上文功能大部分时候是负面效果，默认禁用"
+    expert_settings_page_deduplication_in_bilingual: str = "双语输出文件中对重复行去重"
+    expert_settings_page_deduplication_in_bilingual_desc: str = "在双语输出文件中，原文与译文一致时是否去重，默认启用"
+    expert_settings_page_write_translated_name_fields_to_file: str = "将姓名字段译文写入译文文件"
+    expert_settings_page_write_translated_name_fields_to_file_desc: str = (
+        "部分 <font color='darkgoldenrod'><b>GalGame</b></font> 中，姓名字段数据与立绘、配音等资源文件绑定，翻译后会报错，此时可以关闭该功能，默认启用"
         "<br>"
-        "此功能设计目的仅为查漏补缺，并不能代替手动制作的术语表，只有在 <font color='darkgoldenrod'><b>启用术语表功能</b></font> 时才生效"
+        "支持格式："
         "<br>"
-        "可能导致 <font color='darkgoldenrod'><b>负面效果</b></font> 或 <font color='darkgoldenrod'><b>翻译异常</b></font>，理论上只有在 DeepSeek R1 级别的强力模型上才会有正面效果，请 <font color='darkgoldenrod'><b>自行判断</b></font> 是否启用"
+        "• RenPy 导出游戏文本（.rpy）"
+        "<br>"
+        "• VNTextPatch 或 SExtractor 导出带 name 字段的游戏文本（.json）"
         ""
         ""
     )
-    advance_feature_page_mtool_optimizer_enable: str = "MTool 优化器"
-    advance_feature_page_mtool_optimizer_enable_desc: str = (
-        "启用此功能后，在对 MTool 文本进行翻译时，至多可减少 40% 的 翻译时间 与 Token 消耗"
+    expert_settings_page_result_checker_retry_count_threshold: str = "结果检查 - 重试次数达到阈值"
+    expert_settings_page_result_checker_retry_count_threshold_desc: str = (
+        "是否在结果检查报告里面输出 <font color='darkgoldenrod'><b>重试次数达到阈值</b></font> 的条目列表"
         "<br>"
-        "可能导致 <font color='darkgoldenrod'><b>原文残留</b></font> 或 <font color='darkgoldenrod'><b>语句不连贯</b></font> 等问题，请 <font color='darkgoldenrod'><b>自行判断</b></font> 是否启用，并且只应在 <font color='darkgoldenrod'><b>翻译 MTool 文本时</b></font> 启用"
-        ""
-        ""
+        "• 在进行翻译结果检查时，如果重试达阈值依然未通过检查，就会取最后一次的结果"
+        "<br>"
+        "• 通过此功能，就可以逐一确认最后的取值实际上是否正确的"
     )
+
+    # 质量类通用
+    quality_import: str = "导入"
+    quality_import_toast: str = "数据已导入 …"
+    quality_export: str = "导出"
+    quality_export_toast: str = "数据已导出到应用根目录 …"
+    quality_add: str = "添加"
+    quality_add_toast: str = "新行已添加 …"
+    quality_save: str = "保存"
+    quality_save_toast: str = "数据已保存 …"
+    quality_preset: str = "预设"
+    quality_reset: str = "重置"
+    quality_reset_toast: str = "数据已重置 …"
+    quality_reset_alert: str = "是否确认重置为默认数据 … ？"
+    quality_select_file: str = "选择文件"
+    quality_select_file_type: str = "支持的数据格式 (*.json *.xlsx)"
+    quality_delete_row: str = "删除行"
+    quality_insert_row: str = "插入行"
+    quality_switch_regex: str = "切换正则模式"
 
     # 术语表
     glossary_page_head_title: str = "术语表"
@@ -285,18 +324,21 @@ class LocalizerBase():
     glossary_page_table_row_01: str = "原文"
     glossary_page_table_row_02: str = "译文"
     glossary_page_table_row_03: str = "描述"
-    glossary_page_import: str = "导入"
-    glossary_page_import_toast: str = "数据已导入 …"
-    glossary_page_export: str = "导出"
-    glossary_page_export_toast: str = "数据已导出到应用根目录 …"
-    glossary_page_add: str = "添加"
-    glossary_page_add_toast: str = "新行已添加 …"
-    glossary_page_save: str = "保存"
-    glossary_page_save_toast: str = "数据已保存 …"
-    glossary_page_reset: str = "重置"
-    glossary_page_reset_toast: str = "数据已重置 …"
-    glossary_page_reset_alert: str = "是否确认重置为默认数据 … ？"
     glossary_page_kg: str = "一键制作工具"
+
+    # 文本保护
+    text_preserve_page_head_title: str = "自定义文本保护规则"
+    text_preserve_page_head_content: str = (
+        "对文本中不需要翻译的代码段、控制字符、样式字符等文本进行保护，避免这些文本被错误的翻译"
+        "<br>"
+        "<font color='darkgoldenrod'><b>默认禁用</b></font>，启用前请仔细阅读 <font color='darkgoldenrod'><b>Wiki</b></font> 中的功能说明以确保充分理解使用方式"
+        "<br>"
+        "• 启用 - 根据本页中设置的 <font color='darkgoldenrod'><b>正则规则</b></font> 匹配对应的文本进行保护"
+        "<br>"
+        "• 禁用 - 自动判断文本格式与游戏引擎，智能选择合适的保护规则，在大部分内容中都可以取得较好的效果"
+    )
+    text_preserve_page_table_row_01: str = "规则"
+    text_preserve_page_table_row_02: str = "备注（仅作备忘，无实际作用）"
 
     # 译前替换
     pre_translation_replacement_page_head_title: str = "译前替换"
@@ -311,70 +353,71 @@ class LocalizerBase():
     )
     pre_translation_replacement_page_table_row_01: str = "原文"
     pre_translation_replacement_page_table_row_02: str = "替换"
-    pre_translation_replacement_page_import: str = "导入"
-    pre_translation_replacement_page_import_toast: str = "数据已导入 …"
-    pre_translation_replacement_page_export: str = "导出"
-    pre_translation_replacement_page_export_toast: str = "数据已导出到应用根目录 …"
-    pre_translation_replacement_page_add: str = "添加"
-    pre_translation_replacement_page_add_toast: str = "新行已添加 …"
-    pre_translation_replacement_page_save: str = "保存"
-    pre_translation_replacement_page_save_toast: str = "数据已保存 …"
-    pre_translation_replacement_page_reset: str = "重置"
-    pre_translation_replacement_page_reset_toast: str = "数据已重置 …"
-    pre_translation_replacement_page_reset_alert: str = "是否确认重置为默认数据 … ？"
+    pre_translation_replacement_page_table_row_03: str = "正则"
 
     # 译后替换
     post_translation_replacement_page_head_title: str = "译后替换"
     post_translation_replacement_page_head_content: str = "在翻译完成后，将译文中匹配的部分替换为指定的文本，执行的顺序为从上到下依次替换"
     post_translation_replacement_page_table_row_01: str = "原文"
     post_translation_replacement_page_table_row_02: str = "替换"
-    post_translation_replacement_page_import: str = "导入"
-    post_translation_replacement_page_import_toast: str = "数据已导入 …"
-    post_translation_replacement_page_export: str = "导出"
-    post_translation_replacement_page_export_toast: str = "数据已导出到应用根目录 …"
-    post_translation_replacement_page_add: str = "添加"
-    post_translation_replacement_page_add_toast: str = "新行已添加 …"
-    post_translation_replacement_page_save: str = "保存"
-    post_translation_replacement_page_save_toast: str = "数据已保存 …"
-    post_translation_replacement_page_reset: str = "重置"
-    post_translation_replacement_page_reset_toast: str = "数据已重置 …"
-    post_translation_replacement_page_reset_alert: str = "是否确认重置为默认数据 … ？"
+    post_translation_replacement_page_table_row_03: str = "正则"
 
     # 自定义提示词 - 中文
-    custom_prompt_zh_page_head: str = "译文语言设置为中文时使用的自定义提示词（不支持 SakuraLLM 模型）"
+    custom_prompt_zh_page_head: str = "自定义中文提示词（不支持 SakuraLLM 模型）"
     custom_prompt_zh_page_head_desc: str = (
         "通过自定义提示词追加故事设定、行文风格等额外翻译要求"
         "<br>"
-        "注意：前缀、后缀部分固定不可修改，只有 <font color='darkgoldenrod'><b>译文语言设置为中文时</b></font> 才会使用本页中的自定义提示词"
+        "注意：前缀与后缀部分固定不可修改，只有 <font color='darkgoldenrod'><b>译文语言设置为中文时</b></font> 才会使用本页中的自定义提示词"
         ""
         ""
     )
-    custom_prompt_zh_page_save: str = "保存"
-    custom_prompt_zh_page_save_toast: str = "数据已保存 …"
-    custom_prompt_zh_page_reset: str = "重置"
-    custom_prompt_zh_page_reset_toast: str = "数据已重置 …"
-    custom_prompt_zh_page_reset_alert: str = "是否确认重置为默认数据 … ？"
 
     # 自定义提示词 - 英文
-    custom_prompt_en_page_head: str = "译文语言设置为非中文时使用的自定义提示词（不支持 SakuraLLM 模型）"
+    custom_prompt_en_page_head: str = "自定义英文提示词（不支持 SakuraLLM 模型）"
     custom_prompt_en_page_head_desc: str = (
         "通过自定义提示词追加故事设定、行文风格等额外翻译要求"
         "<br>"
-        "注意：前缀、后缀部分固定不可修改，只有 <font color='darkgoldenrod'><b>译文语言设置为非中文时</b></font> 才会使用本页中的自定义提示词"
+        "注意：前缀与后缀部分固定不可修改，只有 <font color='darkgoldenrod'><b>译文语言设置为非中文时</b></font> 才会使用本页中的自定义提示词"
         ""
         ""
     )
-    custom_prompt_en_page_save: str = "保存"
-    custom_prompt_en_page_save_toast: str = "数据已保存 …"
-    custom_prompt_en_page_reset: str = "重置"
-    custom_prompt_en_page_reset_toast: str = "数据已重置 …"
-    custom_prompt_en_page_reset_alert: str = "是否确认重置为默认数据 … ？"
+
+    # 实验室
+    laboratory_page_mtool_optimizer_enable: str = "MTool 优化器"
+    laboratory_page_mtool_optimizer_enable_desc: str = (
+        "在对 MTool 文本进行翻译时，至多可减少 40% 的 翻译时间 与 Token 消耗"
+        "<br>"
+        "可能导致 <font color='darkgoldenrod'><b>原文残留</b></font> 或 <font color='darkgoldenrod'><b>语句不连贯</b></font> 等问题，请 <font color='darkgoldenrod'><b>自行判断</b></font> 是否启用，并且只应在 <font color='darkgoldenrod'><b>翻译 MTool 文本时</b></font> 启用"
+        ""
+        ""
+        ""
+        ""
+        ""
+        ""
+    )
+    laboratory_page_auto_glossary_enable: str = "自动补全术语表（不支持 SakuraLLM 模型）"
+    laboratory_page_auto_glossary_enable_desc: str = (
+        "翻译的同时尝试自动补全术语表中缺失的专有名词条目，只有在 <font color='darkgoldenrod'><b>启用术语表功能</b></font> 时才生效"
+        "<br>"
+        "此功能设计目的仅为查漏补缺，并不能代替 <font color='darkgoldenrod'><b>KeywordGacha</b></font>，获取到的补充术语将直接 <font color='darkgoldenrod'><b>写入术语表</b></font>"
+        "<br>"
+        "可能会产生 <font color='darkgoldenrod'><b>不正确或不合适的术语条目</b></font>，请 <font color='darkgoldenrod'><b>自行判断</b></font> 是否启用，建议仅在 DeepSeek V3/R1 级别的强力模型使用此功能"
+        ""
+        ""
+        ""
+        ""
+    )
 
     # 百宝箱
     tool_box_page_batch_correction: str = "批量修正"
     tool_box_page_batch_correction_desc: str = "根据翻译完成时生成的结果检查文件中的数据，对可能存在的翻译错误进行批量修正，实现快速修正译文结果的目的"
     tool_box_page_re_translation: str = "部分重翻"
     tool_box_page_re_translation_desc: str = "根据设置的筛选条件，重新对已完成的翻译文本中的部分内容进行翻译，主要用于内容的更新或错误的修正"
+    tool_box_page_name_field_extraction: str = "姓名字段提取"
+    tool_box_page_name_field_extraction_desc: str = (
+        "提取 <font color='darkgoldenrod'><b>RenPy</b></font> 和 <font color='darkgoldenrod'><b>GalGame</b></font> 游戏文本中的角色姓名字段数据，"
+        "自动生成对应的术语表数据，方便后续进行翻译"
+    )
 
     # 百宝箱 - 批量修正
     batch_correction_page: str = "批量修正"
@@ -393,7 +436,7 @@ class LocalizerBase():
     batch_correction_page_step_01_desc: str = (
         "从结果检查文件中提取可能包含翻译错误的数据"
         "<br>"
-        f"然后在 <font color='darkgoldenrod'><b>输出文件夹</b></font> 内生成用于编辑的数据文件 <font color='darkgoldenrod'><b>{path_result_batch_correction}</b></font>"
+        f"然后自动在 <font color='darkgoldenrod'><b>输出文件夹</b></font> 内生成用于编辑的数据文件 <font color='darkgoldenrod'><b>{path_result_batch_correction}</b></font>"
     )
     batch_correction_page_step_02: str = "第二步 - 注入修正数据"
     batch_correction_page_step_02_desc: str = (
@@ -432,3 +475,29 @@ class LocalizerBase():
     )
     re_translation_page_white_list_placeholder: str = "请输入关键字 …"
     re_translation_page_alert_not_equal: str = "原文与译文的行数不匹配 …"
+
+    # 百宝箱 - 姓名字段提取
+    name_field_extraction_page: str = "姓名字段提取"
+    name_field_extraction_page_desc: str = (
+        "将从 <font color='darkgoldenrod'><b>输入文件夹</b></font> 中所有符合条件的文件中提取角色姓名字段，自动生成对应的术语表数据"
+        "<br>"
+        "请注意：此功能 <font color='darkgoldenrod'><b>不能提取正文内的术语</b></font>，不能代替 <font color='darkgoldenrod'><b>KeywordGacha</b></font> 工具"
+        "<br>"
+        "支持格式："
+        "<br>"
+        "• RenPy 导出游戏文本（.rpy）"
+        "<br>"
+        "• VNTextPatch 或 SExtractor 导出带 name 字段的游戏文本（.json）"
+    )
+    name_field_extraction_page_step_01: str = "第一步 - 提取数据"
+    name_field_extraction_page_step_01_desc: str = (
+        "提取姓名字段及与其相关的上下文，发送至翻译器进行翻译"
+        "<br>"
+        f"翻译完成后，将在 <font color='darkgoldenrod'><b>输出文件夹</b></font> 内生成 <font color='darkgoldenrod'><b>{path_result_name_field_extraction}</b></font> 文件"
+    )
+    name_field_extraction_page_step_02: str = "第二步 - 生成术语表"
+    name_field_extraction_page_step_02_desc: str = (
+        f"将从 <font color='darkgoldenrod'><b>输出文件夹</b></font> 内的 <font color='darkgoldenrod'><b>{path_result_name_field_extraction}</b></font> 文件中提取翻译后的数据"
+        "<br>"
+        "然后生成对应的术语表数据，请注意检查生成的术语表数据是否正确"
+    )

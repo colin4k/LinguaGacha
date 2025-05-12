@@ -2,6 +2,7 @@ import os
 import threading
 
 from base.Base import Base
+from module.Config import Config
 from module.Localizer.Localizer import Localizer
 from module.Translator.TranslatorRequester import TranslatorRequester
 
@@ -14,8 +15,8 @@ class PlatformTester(Base):
         self.subscribe(Base.Event.PLATFORM_TEST_START, self.platform_test_start)
 
     # 接口测试开始事件
-    def platform_test_start(self, event: int, data: dict) -> None:
-        if Base.WORK_STATUS != Base.Status.IDLE:
+    def platform_test_start(self, event: str, data: dict) -> None:
+        if Base.WORK_STATUS != Base.TaskStatus.IDLE:
             self.emit(Base.Event.APP_TOAST_SHOW, {
                 "type": Base.ToastType.WARNING,
                 "message": Localizer.get().platofrm_tester_running,
@@ -27,25 +28,12 @@ class PlatformTester(Base):
             ).start()
 
     # 接口测试开始
-    def platform_test_start_target(self, event: int, data: dict) -> None:
+    def platform_test_start_target(self, event: str, data: dict) -> None:
         # 更新运行状态
-        Base.WORK_STATUS = Base.Status.TESTING
+        Base.WORK_STATUS = Base.TaskStatus.TESTING
 
-        platform = {}
-        config = self.load_config()
-        for item in config.get("platforms"):
-            if item.get("id") == data.get("id"):
-                platform = item
-                break
-
-        # 网络代理
-        if config.get("proxy_enable") == False or config.get("proxy_url") == "":
-            os.environ.pop("http_proxy", None)
-            os.environ.pop("https_proxy", None)
-        else:
-            os.environ["http_proxy"] = config.get("proxy_url")
-            os.environ["https_proxy"] = config.get("proxy_url")
-            self.info(f"{Localizer.get().platofrm_tester_proxy}{config.get("proxy_url")}")
+        config = Config().load()
+        platform = config.get_platform(data.get("id"))
 
         # 测试结果
         failure = []
@@ -63,27 +51,23 @@ class PlatformTester(Base):
                     "content": "将下面的日文文本翻译成中文：魔導具師ダリヤはうつむかない",
                 },
             ]
-        elif platform.get("api_format") == Base.APIFormat.GOOGLE:
-            messages = [
-                {
-                    "role": "user",
-                    "parts": "将下面的日文文本翻译成中文：魔導具師ダリヤはうつむかない\n遵循以下JSON格式返回结果：\n{\"<ID>\":\"<译文文本>\"}",
-                },
-            ]
         else:
             messages = [
                 {
                     "role": "user",
-                    "content": "将下面的日文文本翻译成中文：魔導具師ダリヤはうつむかない\n遵循以下JSON格式返回结果：\n{\"<ID>\":\"<译文文本>\"}",
+                    "content": "将下面的日文文本翻译成中文，按输入格式返回结果：{\"0\":\"魔導具師ダリヤはうつむかない\"}",
                 },
             ]
+
+        # 重置请求器
+        TranslatorRequester.reset()
 
         # 开始测试
         requester = TranslatorRequester(config, platform, 0)
         for key in platform.get("api_key"):
             self.print("")
             self.info(f"{Localizer.get().platofrm_tester_key} - {key}")
-            self.info(f"{Localizer.get().platofrm_tester_messages} - {messages}")
+            self.info(f"{Localizer.get().platofrm_tester_messages}\n{messages}")
             skip, response_think, response_result, _, _ = requester.request(messages)
 
             # 提取回复内容
@@ -92,11 +76,11 @@ class PlatformTester(Base):
                 self.warning(Localizer.get().log_api_test_fail)
             elif response_think == "":
                 success.append(key)
-                self.info(f"{Localizer.get().platofrm_tester_response_result} - {response_result}")
+                self.info(f"{Localizer.get().platofrm_tester_response_result}\n{response_result}")
             else:
                 success.append(key)
-                self.info(f"{Localizer.get().platofrm_tester_response_think} - {response_result}")
-                self.info(f"{Localizer.get().platofrm_tester_response_result} - {response_result}")
+                self.info(f"{Localizer.get().platofrm_tester_response_think}\n{response_think}")
+                self.info(f"{Localizer.get().platofrm_tester_response_result}\n{response_result}")
 
         # 测试结果
         result_msg = (
@@ -108,7 +92,7 @@ class PlatformTester(Base):
         self.info(result_msg)
 
         # 更新运行状态
-        Base.WORK_STATUS = Base.Status.IDLE
+        Base.WORK_STATUS = Base.TaskStatus.IDLE
 
         # 发送完成事件
         self.emit(Base.Event.PLATFORM_TEST_DONE, {

@@ -1,9 +1,11 @@
 import os
-
-import rapidjson as json
+import json
 
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
+from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
+from module.Config import Config
 
 class MESSAGEJSON(Base):
 
@@ -32,25 +34,28 @@ class MESSAGEJSON(Base):
     #     },
     # ]
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
 
         # 初始化
-        self.config: dict = config
-        self.input_path: str = config.get("input_folder")
-        self.output_path: str = config.get("output_folder")
-        self.source_language: str = config.get("source_language")
-        self.target_language: str = config.get("target_language")
+        self.config = config
+        self.input_path: str = config.input_folder
+        self.output_path: str = config.output_folder
+        self.source_language: BaseLanguage.Enum = config.source_language
+        self.target_language: BaseLanguage.Enum = config.target_language
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
         items: list[CacheItem] = []
-        for abs_path in set(abs_paths):
+        for abs_path in abs_paths:
             # 获取相对路径
             rel_path = os.path.relpath(abs_path, self.input_path)
 
+            # 获取文件编码
+            encoding = TextHelper.get_enconding(path = abs_path, add_sig_to_utf8 = True)
+
             # 数据处理
-            with open(abs_path, "r", encoding = "utf-8-sig") as reader:
+            with open(abs_path, "r", encoding = encoding) as reader:
                 json_data: list[dict[str, dict]] = json.load(reader)
 
                 # 格式校验
@@ -82,6 +87,7 @@ class MESSAGEJSON(Base):
                             "row": len(items),
                             "file_type": CacheItem.FileType.MESSAGEJSON,
                             "file_path": rel_path,
+                            "text_type": CacheItem.TextType.KAG,
                         })
                     )
 
@@ -94,8 +100,11 @@ class MESSAGEJSON(Base):
             if item.get_file_type() == CacheItem.FileType.MESSAGEJSON
         ]
 
-        # 统一姓名
-        self.uniform_name(target)
+        # 统一或还原姓名字段
+        if self.config.write_translated_name_fields_to_file == False:
+            self.revert_name(target)
+        else:
+            self.uniform_name(target)
 
         group: dict[str, list[str]] = {}
         for item in target:
@@ -130,7 +139,22 @@ class MESSAGEJSON(Base):
             with open(abs_path, "w", encoding = "utf-8") as writer:
                 writer.write(json.dumps(result, indent = 4, ensure_ascii = False))
 
-    # 统一姓名
+    # 还原姓名字段
+    def revert_name(self, items: list[CacheItem]) -> list[CacheItem]:
+        for item in items:
+            name_src = item.get_name_src()
+            name_dst = item.get_name_dst()
+
+            # 有效性检查
+            if name_src is None or name_dst is None:
+                continue
+
+            if isinstance(name_src, str):
+                item.set_name_dst(item.get_name_src())
+            elif isinstance(name_src, list):
+                item.set_name_dst(item.get_name_src())
+
+    # 统一姓名字段
     def uniform_name(self, items: list[CacheItem]) -> list[CacheItem]:
         # 统计
         result: dict[str, dict] = {}

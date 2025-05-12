@@ -29,31 +29,26 @@ class NONE():
 
     # 检查
     def check(self, path: str, data: list[str], tag: list[str], context: list[str]) -> tuple[str, str, list[str], str, bool]:
+        src: str = data[0] if len(data) > 0 and isinstance(data[0], str) else ""
+        dst: str = data[1] if len(data) > 1 and isinstance(data[1], str) else src
+
         # 如果数据为空，则跳过
-        if len(data) == 0 or not isinstance(data[0], str):
-            src: str = ""
-            dst: str = ""
+        if src == "":
             status: str = Base.TranslationStatus.EXCLUDED
             skip_internal_filter: bool = False
         # 如果包含 水蓝色 标签，则翻译
         elif any(v == "aqua" for v in tag):
-            src: str = data[0]
-            dst: str = data[0]
             status: str = Base.TranslationStatus.UNTRANSLATED
             skip_internal_filter: bool = True
         # 如果 第一列、第二列 都有文本，则跳过
-        elif len(data) >= 2 and isinstance(data[1], str) and data[1].strip() != "":
-            src: str = data[0]
-            dst: str = data[1]
+        elif dst != "" and src != dst:
             status: str = Base.TranslationStatus.TRANSLATED_IN_PAST
             skip_internal_filter: bool = False
         else:
-            src: str = data[0]
-            dst: str = data[0]
             block = self.filter(src, path, tag, context)
             skip_internal_filter: bool = False
 
-            # 如果全部数据需要不需要过滤，则移除 red blue gold 标签
+            # 如果全部数据都不需要过滤，则移除 red blue gold 标签
             if all(v == False for v in block):
                 tag: list[str] = [v for v in tag if v not in ("red", "blue", "gold")]
             # 如果任意数据需要过滤，且不包含 red blue gold 标签，则添加 gold 标签
@@ -74,8 +69,8 @@ class NONE():
             return [True] * len(context)
 
         block: list[bool] = []
-        for _ in context:
-            # 如果在标签黑名单，则需要过滤
+        for _ in range(len(context) if len(context) > 0 else 1):
+            # 包含 red blue 标签，则过滤
             if any(v in ("red", "blue") for v in tag):
                 block.append(True)
             # 默认，无需过滤

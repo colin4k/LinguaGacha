@@ -4,10 +4,10 @@ from base.Base import Base
 from base.BaseLanguage import BaseLanguage
 from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
+from module.Config import Config
 from module.Filter.RuleFilter import RuleFilter
 from module.Filter.LanguageFilter import LanguageFilter
-from module.CodeSaver import CodeSaver
-from module.PromptBuilder import PromptBuilder
+from module.TextPreserver import TextPreserver
 
 class ResponseChecker(Base):
 
@@ -39,17 +39,17 @@ class ResponseChecker(Base):
     # 退化检测规则
     RE_DEGRADATION = re.compile(r"(.{1,2})\1{16,}", flags = re.IGNORECASE)
 
-    def __init__(self, config: dict, items: list[CacheItem]) -> None:
+    def __init__(self, config: Config, items: list[CacheItem]) -> None:
         super().__init__()
 
         # 初始化
         self.items = items
         self.config = config
-        self.source_language = self.config.get("source_language")
-        self.target_language = self.config.get("target_language")
+        self.source_language = self.config.source_language
+        self.target_language = self.config.target_language
 
     # 检查
-    def check(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem], source_language: str) -> list[str]:
+    def check(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem], source_language: BaseLanguage.Enum) -> list[str]:
         # 数据解析失败
         if len(dst_dict) == 0 or all(v == "" or v == None for v in dst_dict.values()):
             return [ResponseChecker.Error.FAIL_DATA] * len(src_dict)
@@ -59,10 +59,7 @@ class ResponseChecker(Base):
             return [ResponseChecker.Error.NONE] * len(src_dict)
 
         # 行数检查
-        if not (
-            len(src_dict) == len(dst_dict) # 原文与译文行数一致
-            and all(str(key) in dst_dict for key in range(len(dst_dict))) # 译文的 Key 的值为从 0 开始的连续数值字符
-        ):
+        if len(src_dict) != len(dst_dict):
             return [ResponseChecker.Error.FAIL_LINE_COUNT] * len(src_dict)
 
         # 逐行检查
@@ -74,7 +71,7 @@ class ResponseChecker(Base):
         return [ResponseChecker.Error.NONE] * len(src_dict)
 
     # 逐行检查错误
-    def check_lines(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem], source_language: str) -> list[str]:
+    def check_lines(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem], source_language: BaseLanguage.Enum) -> list[str]:
         check_result: list[int] = []
         for src, dst, item in zip(src_dict.values(), dst_dict.values(), item_dict.values()):
             src = src.strip()
@@ -86,7 +83,7 @@ class ResponseChecker(Base):
                 continue
 
             # 原文内容包含代码救星占位符时，判断为正确翻译
-            if CodeSaver.PLACEHOLDER in src:
+            if TextPreserver.PLACEHOLDER in src:
                 check_result.append(ResponseChecker.Error.NONE)
                 continue
 
@@ -100,23 +97,18 @@ class ResponseChecker(Base):
                 check_result.append(ResponseChecker.Error.NONE)
                 continue
 
-            # 译文内容包括伪回复时，判断为错误翻译
-            if PromptBuilder.FAKE_REPLY_ZH in dst or PromptBuilder.FAKE_REPLY_EN in dst:
-                check_result.append(ResponseChecker.Error.LINE_ERROR_FAKE_REPLY)
-                continue
-
             # 当原文中不包含重复文本但是译文中包含重复文本时，判断为 退化
             if ResponseChecker.RE_DEGRADATION.search(src) == None and ResponseChecker.RE_DEGRADATION.search(dst) != None:
                 check_result.append(ResponseChecker.Error.LINE_ERROR_DEGRADATION)
                 continue
 
             # 当原文语言为日语，且译文中包含平假名或片假名字符时，判断为 假名残留
-            if source_language == BaseLanguage.JA and (TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst)):
+            if source_language == BaseLanguage.Enum.JA and (TextHelper.JA.any_hiragana(dst) or TextHelper.JA.any_katakana(dst)):
                 check_result.append(ResponseChecker.Error.LINE_ERROR_KANA)
                 continue
 
             # 当原文语言为韩语，且译文中包含谚文字符时，判断为 谚文残留
-            if source_language == BaseLanguage.KO and TextHelper.KO.any_hangeul(dst):
+            if source_language == BaseLanguage.Enum.KO and TextHelper.KO.any_hangeul(dst):
                 check_result.append(ResponseChecker.Error.LINE_ERROR_HANGEUL)
                 continue
 

@@ -8,9 +8,10 @@ from bs4 import BeautifulSoup
 from lxml import etree
 
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
 from module.Cache.CacheItem import CacheItem
+from module.Config import Config
 from module.Localizer.Localizer import Localizer
-from module.ExpertConfig import ExpertConfig
 
 class EPUB(Base):
 
@@ -20,15 +21,15 @@ class EPUB(Base):
     # EPUB 文件中读取的标签范围
     EPUB_TAGS = ("p", "h1", "h2", "h3", "h4", "h5", "h6", "div", "li", "td","th","dt","dd")
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
 
         # 初始化
-        self.config: dict = config
-        self.input_path: str = config.get("input_folder")
-        self.output_path: str = config.get("output_folder")
-        self.source_language: str = config.get("source_language")
-        self.target_language: str = config.get("target_language")
+        self.config = config
+        self.input_path: str = config.input_folder
+        self.output_path: str = config.output_folder
+        self.source_language: BaseLanguage.Enum = config.source_language
+        self.target_language: BaseLanguage.Enum = config.target_language
 
     # 在扩展名前插入文本
     def insert_target(self, path: str) -> str:
@@ -42,8 +43,8 @@ class EPUB(Base):
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
-        items = []
-        for abs_path in set(abs_paths):
+        items:list[CacheItem] = []
+        for abs_path in abs_paths:
             # 获取相对路径
             rel_path = os.path.relpath(abs_path, self.input_path)
 
@@ -54,7 +55,7 @@ class EPUB(Base):
             # 数据处理
             with zipfile.ZipFile(abs_path, "r") as zip_reader:
                 for path in zip_reader.namelist():
-                    if path.lower().endswith((".html", ".xhtml")):
+                    if path.lower().endswith((".htm", ".html", ".xhtml")):
                         with zip_reader.open(path) as reader:
                             bs = BeautifulSoup(reader.read().decode("utf-8-sig"), "html.parser")
                             for dom in bs.find_all(EPUB.EPUB_TAGS):
@@ -159,8 +160,8 @@ class EPUB(Base):
                     # 输出双语
                     if bilingual == True:
                         if (
-                            ExpertConfig.get().deduplication_in_bilingual != True
-                            or (ExpertConfig.get().deduplication_in_bilingual == True and item.get_src() != item.get_dst())
+                            self.config.deduplication_in_bilingual != True
+                            or (self.config.deduplication_in_bilingual == True and item.get_src() != item.get_dst())
                         ):
                             line_src = copy.copy(dom)
                             line_src["style"] = line_src.get("style", "").removesuffix(";") + "opacity:0.50;"
@@ -190,12 +191,12 @@ class EPUB(Base):
         ]
 
         # 按文件路径分组
-        data: dict[str, list[str]] = {}
+        group: dict[str, list[str]] = {}
         for item in target:
-            data.setdefault(item.get_file_path(), []).append(item)
+            group.setdefault(item.get_file_path(), []).append(item)
 
         # 分别处理每个文件
-        for rel_path, items in data.items():
+        for rel_path, items in group.items():
             # 按行号排序
             items = sorted(items, key = lambda x: x.get_row())
 
@@ -211,13 +212,13 @@ class EPUB(Base):
                             process_opf(zip_reader, path)
                         elif path.lower().endswith(".ncx"):
                             process_ncx(zip_reader, path, items)
-                        elif path.lower().endswith((".html", ".xhtml")):
+                        elif path.lower().endswith((".htm", ".html", ".xhtml")):
                             process_html(zip_reader, path, items, False)
                         else:
                             zip_writer.writestr(path, zip_reader.read(path))
 
         # 分别处理每个文件（双语）
-        for rel_path, items in data.items():
+        for rel_path, items in group.items():
             # 按行号排序
             items = sorted(items, key = lambda x: x.get_row())
 
@@ -233,7 +234,7 @@ class EPUB(Base):
                             process_opf(zip_reader, path)
                         elif path.lower().endswith(".ncx"):
                             process_ncx(zip_reader, path, items)
-                        elif path.lower().endswith((".html", ".xhtml")):
+                        elif path.lower().endswith((".htm", ".html", ".xhtml")):
                             process_html(zip_reader, path, items, True)
                         else:
                             zip_writer.writestr(path, zip_reader.read(path))

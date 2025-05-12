@@ -4,7 +4,6 @@ import itertools
 import threading
 
 import opencc
-import rapidjson as json
 from rich import box
 from rich import markup
 from rich.table import Table
@@ -14,18 +13,18 @@ from base.Base import Base
 from base.BaseLanguage import BaseLanguage
 from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
-from module.Cache.CacheManager import CacheManager
 from module.Fixer.CodeFixer import CodeFixer
 from module.Fixer.KanaFixer import KanaFixer
 from module.Fixer.EscapeFixer import EscapeFixer
 from module.Fixer.NumberFixer import NumberFixer
 from module.Fixer.HangeulFixer import HangeulFixer
 from module.Fixer.PunctuationFixer import PunctuationFixer
+from module.Config import Config
 from module.Response.ResponseChecker import ResponseChecker
 from module.Response.ResponseDecoder import ResponseDecoder
 from module.Localizer.Localizer import Localizer
-from module.LogHelper import LogHelper
-from module.CodeSaver import CodeSaver
+from base.LogManager import LogManager
+from module.TextPreserver import TextPreserver
 from module.Normalizer import Normalizer
 from module.Translator.TranslatorRequester import TranslatorRequester
 from module.PromptBuilder import PromptBuilder
@@ -37,13 +36,17 @@ class TranslatorTask(Base):
     OPENCCS2T = opencc.OpenCC("s2t")
     OPENCCT2S = opencc.OpenCC("t2s")
 
+    # 自动术语表相关
+    GLOSSARY_SAVE_TIME: float = time.time()
+    GLOSSARY_SAVE_INTERVAL: int = 15
+
     # 正则规则
-    RE_NAME = re.compile(r"^【(.*?)】\s*|\[(.*?)\]\s*", flags = re.IGNORECASE)
+    REGEX_NAME = re.compile(r"^【(.*?)】\s*|\[(.*?)\]\s*", flags = re.IGNORECASE)
 
     # 类线程锁
     LOCK = threading.Lock()
 
-    def __init__(self, config: dict, platform: dict, items: list[CacheItem], preceding_items: list[CacheItem], cache_manager: CacheManager) -> None:
+    def __init__(self, config: Config, platform: dict, local_flag: bool, items: list[CacheItem], preceding_items: list[CacheItem]) -> None:
         super().__init__()
 
         # 初始化
@@ -51,8 +54,8 @@ class TranslatorTask(Base):
         self.preceding_items = preceding_items
         self.config = config
         self.platform = platform
-        self.code_saver = CodeSaver()
-        self.cache_manager = cache_manager
+        self.local_flag = local_flag
+        self.code_saver = TextPreserver(config)
         self.prompt_builder = PromptBuilder(self.config)
         self.response_checker = ResponseChecker(self.config, items)
 
@@ -93,51 +96,48 @@ class TranslatorTask(Base):
             }
 
     # 启动任务
-    def start(self, current_round: int) -> dict:
-        return self.request(self.src_dict, self.item_dict, self.preceding_items, self.samples, current_round)
+    def start(self, current_round: int) -> dict[str, str]:
+        return self.request(self.src_dict, self.item_dict, self.preceding_items, self.samples, self.local_flag, current_round)
 
     # 请求
-    def request(self, src_dict: dict[str, str], item_dict: dict[str, CacheItem], preceding_items: list[CacheItem], samples: list[str], current_round: int) -> dict:
+    def request(self, src_dict: dict[str, str], item_dict: dict[str, CacheItem], preceding_items: list[CacheItem], samples: list[str], local_flag: bool, current_round: int) -> dict[str, str]:
         # 任务开始的时间
         start_time = time.time()
 
         # 检测是否需要停止任务
-        if Base.WORK_STATUS == Base.Status.STOPPING:
+        if Base.WORK_STATUS == Base.TaskStatus.STOPPING:
             return {}
 
         # 检查是否超时，超时则直接跳过当前任务，以避免死循环
-        if time.time() - start_time >= self.config.get("request_timeout"):
+        if time.time() - start_time >= self.config.request_timeout:
             return {}
 
         # 生成请求提示词
         if self.platform.get("api_format") != Base.APIFormat.SAKURALLM:
-            self.messages, console_log = self.generate_prompt(src_dict, preceding_items, samples)
+            self.messages, console_log = self.prompt_builder.generate_prompt(src_dict, preceding_items, samples, local_flag)
         else:
-            self.messages, console_log = self.generate_prompt_sakura(src_dict)
+            self.messages, console_log = self.prompt_builder.generate_prompt_sakura(src_dict)
 
         # 发起请求
         requester = TranslatorRequester(self.config, self.platform, current_round)
-        skip, response_think, response_result, prompt_tokens, completion_tokens = requester.request(self.messages)
+        skip, response_think, response_result, input_tokens, output_tokens = requester.request(self.messages)
 
         # 如果请求结果标记为 skip，即有错误发生，则跳过本次循环
         if skip == True:
             return {
                 "row_count": 0,
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
             }
 
         # 提取回复内容
-        if self.config.get("auto_glossary_enable") == False:
-            dst_dict, glossary_auto, response_decode_log = ResponseDecoder().decode(response_result)
-        else:
-            dst_dict, glossary_auto, response_decode_log = ResponseDecoder().decode_mix(response_result)
+        dst_dict, glossary_list = ResponseDecoder().decode(response_result)
 
         # 确保 kv 都为字符串
         dst_dict = {str(k): str(v) for k, v in dst_dict.items()}
 
         # 检查回复内容
-        check_result = self.response_checker.check(src_dict, dst_dict, item_dict, self.config.get("source_language"))
+        check_result = self.response_checker.check(src_dict, dst_dict, item_dict, self.config.source_language)
 
         # 当任务失败且是单条目任务时，更新重试次数
         if any(v != ResponseChecker.Error.NONE for v in check_result) != None and len(self.items) == 1:
@@ -151,19 +151,16 @@ class TranslatorTask(Base):
             console_log.append(Localizer.get().translator_task_response_think + response_think)
         if response_result != "":
             file_log.append(Localizer.get().translator_task_response_result + response_result)
-            console_log.append(Localizer.get().translator_task_response_result + response_result) if LogHelper.is_debug() else None
-        if response_decode_log != "":
-            file_log.append(response_decode_log)
-            console_log.append(response_decode_log) if LogHelper.is_debug() else None
+            console_log.append(Localizer.get().translator_task_response_result + response_result) if LogManager.is_expert_mode() else None
 
         # 如果有任何正确的条目，则处理结果
         updated_count = 0
         if any(v == ResponseChecker.Error.NONE for v in check_result):
             # 提取姓名
-            name_dsts: list[str] = self.extract_name(src_dict, dst_dict)
+            name_list: list[str] = self.extract_name(src_dict, dst_dict)
 
             # 自动修复
-            dst_dict: dict[str, str] = self.auto_fix(src_dict, dst_dict, item_dict)
+            dst_dict = self.auto_fix(src_dict, dst_dict, item_dict)
 
             # 代码救星后处理
             dst_dict = self.code_saver.post_process(src_dict, dst_dict)
@@ -176,22 +173,18 @@ class TranslatorTask(Base):
 
             # 更新术语表
             with TranslatorTask.LOCK:
-                self.merge_glossary(glossary_auto)
+                TranslatorTask.GLOSSARY_SAVE_TIME = self.merge_glossary(glossary_list, TranslatorTask.GLOSSARY_SAVE_TIME)
 
             # 更新缓存数据
-            dst_sub_lines = list(dst_dict.values())
-            check_result_lines = check_result.copy()
-            for item, name_dst in zip(self.items, name_dsts):
-                dst, dst_sub_lines, check_result_lines = item.merge_sub_lines(dst_sub_lines, check_result_lines)
-                if isinstance(dst, list):
-                    if name_dst is not None:
-                        name_src: str | tuple[str] = item.get_name_src()
-                        if isinstance(name_src, str) and name_src != "":
-                            item.set_name_dst(name_dst)
-                        elif isinstance(name_src, list) and len(name_src) > 0:
-                            item.set_name_dst([name_dst] + name_src[1:])
+            dst_list = list(dst_dict.values())
+            check_list = check_result.copy()
+            for item, name in zip(self.items, name_list):
+                dsts, _ = item.merge_sub_lines(dst_list, check_list)
+                if isinstance(dsts, list):
+                    if name is not None:
+                        item.set_first_name_dst(name)
 
-                    item.set_dst("\n".join(dst))
+                    item.set_dst("\n".join(dsts))
                     item.set_status(Base.TranslationStatus.TRANSLATED)
                     updated_count = updated_count + 1
 
@@ -199,8 +192,8 @@ class TranslatorTask(Base):
         self.print_log_table(
             check_result,
             start_time,
-            prompt_tokens,
-            completion_tokens,
+            input_tokens,
+            output_tokens,
             [line.strip() for line in src_dict.values()],
             [line.strip() for line in dst_dict.values()],
             file_log,
@@ -211,34 +204,38 @@ class TranslatorTask(Base):
         if updated_count > 0:
             return {
                 "row_count": updated_count,
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
             }
         else:
             return {
                 "row_count": 0,
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
             }
 
     # 正规化
-    def normalize(self, data: dict[str, str]) -> dict:
+    def normalize(self, data: dict[str, str]) -> dict[str, str]:
         for k in data.keys():
             data[k] = Normalizer.normalize(data.get(k, ""))
 
         return data
 
     # 合并术语表
-    def merge_glossary(self, glossary_auto: list[dict]) -> list[dict]:
-        data: list[dict] = self.config.get("glossary_data")
-        if self.config.get("glossary_enable") == False or self.config.get("auto_glossary_enable") == False:
-            return data
+    def merge_glossary(self, glossary_list: list[dict[str, str]], last_save_time: float) -> float:
+        # 有效性检查
+        if self.config.glossary_enable == False:
+            return last_save_time
+        if self.config.auto_glossary_enable == False:
+            return last_save_time
 
         # 提取现有术语表的原文列表
+        data: list[dict] = self.config.glossary_data
         keys = {item.get("src", "") for item in data}
 
         # 合并去重后的术语表
-        for item in glossary_auto:
+        changed: bool = False
+        for item in glossary_list:
             src = item.get("src", "").strip()
             dst = item.get("dst", "").strip()
             info = item.get("info", "").strip()
@@ -248,78 +245,84 @@ class TranslatorTask(Base):
                 continue
 
             # 将原文和译文都按标点切分
-            srcs = TextHelper.split_by_punctuation(src, split_by_space = False)
-            dsts = TextHelper.split_by_punctuation(dst, split_by_space = False)
+            srcs: list[str] = TextHelper.split_by_punctuation(src, split_by_space = True)
+            dsts: list[str] = TextHelper.split_by_punctuation(dst, split_by_space = True)
             if len(srcs) != len(dsts):
-                if src == dst:
+                srcs = [src]
+                dsts = [dst]
+
+            for src, dst in zip(srcs, dsts):
+                src = src.strip()
+                dst = dst.strip()
+                if src == dst or src == "" or dst == "":
                     continue
-                if src == "" or dst == "":
-                    continue
-                if not any(key in src or src in key for key in keys):
+                if not any(key == src for key in keys):
+                    changed = True
                     keys.add(src)
                     data.append({
                         "src": src,
                         "dst": dst,
                         "info": info,
                     })
-            else:
-                for src, dst in zip(srcs, dsts):
-                    src = src.strip()
-                    dst = dst.strip()
-                    if src == dst:
-                        continue
-                    if src == "" or dst == "":
-                        continue
-                    if not any(key in src or src in key for key in keys):
-                        keys.add(src)
-                        data.append({
-                            "src": src,
-                            "dst": dst,
-                            "info": info,
-                        })
 
-        return data
+        if changed == True and time.time() - last_save_time > __class__.GLOSSARY_SAVE_INTERVAL:
+            # 更新配置文件
+            config = Config().load()
+            config.glossary_data = data
+            config.save()
+
+            # 术语表刷新事件
+            self.emit(Base.Event.GLOSSARY_REFRESH, {})
+
+            return time.time()
+
+        # 返回原始值
+        return last_save_time
 
     # 译前替换
-    def replace_before_translation(self, data: dict[str, str]) -> dict:
-        if self.config.get("pre_translation_replacement_enable") == False:
+    def replace_before_translation(self, data: dict[str, str]) -> dict[str, str]:
+        if self.config.pre_translation_replacement_enable == False:
             return data
 
-        replace_dict: list[dict] = self.config.get("pre_translation_replacement_data")
+        replace_dict: list[dict] = self.config.pre_translation_replacement_data
         for k in data:
             for v in replace_dict:
-                if v.get("src", "") in data[k]:
-                    data[k] = data[k].replace(v.get("src", ""), v.get("dst", ""))
+                if v.get("regex", False) != True:
+                    data[k] = data.get(k).replace(v.get("src"), v.get("dst"))
+                else:
+                    data[k] = re.sub(rf"{v.get("src")}", rf"{v.get("dst")}", data.get(k))
 
         return data
 
     # 译后替换
-    def replace_after_translation(self, data: dict[str, str]) -> dict:
-        if self.config.get("post_translation_replacement_enable") == False:
+    def replace_after_translation(self, data: dict[str, str]) -> dict[str, str]:
+        if self.config.post_translation_replacement_enable == False:
             return data
 
-        replace_dict: list[dict] = self.config.get("post_translation_replacement_data")
+        replace_dict: list[dict] = self.config.post_translation_replacement_data
         for k in data:
             for v in replace_dict:
-                if v.get("src", "") in data[k]:
-                    data[k] = data[k].replace(v.get("src", ""), v.get("dst", ""))
+                if v.get("regex", False) != True:
+                    data[k] = data.get(k).replace(v.get("src"), v.get("dst"))
+                else:
+                    data[k] = re.sub(rf"{v.get("src")}", rf"{v.get("dst")}", data.get(k))
 
         return data
 
     # 中文字型转换
-    def convert_chinese_character_form(self, data: dict[str, str]) -> dict:
-        if self.config.get("target_language") != BaseLanguage.ZH:
+    def convert_chinese_character_form(self, data: dict[str, str]) -> dict[str, str]:
+        if self.config.target_language != BaseLanguage.Enum.ZH:
             return data
 
-        if self.config.get("traditional_chinese_enable") == True:
+        if self.config.traditional_chinese_enable == True:
             return {k: TranslatorTask.OPENCCS2T.convert(v) for k, v in data.items()}
         else:
             return {k: TranslatorTask.OPENCCT2S.convert(v) for k, v in data.items()}
 
     # 自动修复
-    def auto_fix(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem]) -> dict:
-        source_language = self.config.get("source_language")
-        target_language = self.config.get("target_language")
+    def auto_fix(self, src_dict: dict[str, str], dst_dict: dict[str, str], item_dict: dict[str, CacheItem]) -> dict[str, str]:
+        source_language = self.config.source_language
+        target_language = self.config.target_language
 
         for k in dst_dict:
             # 有效性检查
@@ -327,14 +330,14 @@ class TranslatorTask(Base):
                 continue
 
             # 假名修复
-            if source_language == BaseLanguage.JA:
+            if source_language == BaseLanguage.Enum.JA:
                 dst_dict[k] = KanaFixer.fix(dst_dict[k])
             # 谚文修复
-            elif source_language == BaseLanguage.KO:
+            elif source_language == BaseLanguage.Enum.KO:
                 dst_dict[k] = HangeulFixer.fix(dst_dict[k])
 
             # 代码修复
-            dst_dict[k] = CodeFixer.fix(src_dict[k], dst_dict[k], item_dict.get(k).get_text_type())
+            dst_dict[k] = CodeFixer.fix(src_dict[k], dst_dict[k], item_dict.get(k).get_text_type(), self.config)
 
             # 转义修复
             dst_dict[k] = EscapeFixer.fix(src_dict[k], dst_dict[k])
@@ -348,7 +351,7 @@ class TranslatorTask(Base):
         return dst_dict
 
     # 注入姓名
-    def inject_name(self, src_dict: dict[str, str], item_dict: dict[str, CacheItem], start_key_set: set[str]) -> dict:
+    def inject_name(self, src_dict: dict[str, str], item_dict: dict[str, CacheItem], start_key_set: set[str]) -> dict[str, str]:
         name_key_set: set[str] = set()
 
         for k in src_dict:
@@ -358,119 +361,34 @@ class TranslatorTask(Base):
 
             # 注入姓名
             item = item_dict.get(k)
-            name_src: str | tuple[str] = item.get_name_src()
-            if isinstance(name_src, str) and name_src != "":
-                src_dict[k] = f"【{name_src}】" + src_dict.get(k, "")
-                name_key_set.add(k)
-            elif isinstance(name_src, list) and len(name_src) > 0:
-                src_dict[k] = f"【{name_src[0]}】" + src_dict.get(k, "")
+            name: str = item.get_first_name_src()
+            if name is not None:
+                src_dict[k] = f"【{name}】{src_dict.get(k, "")}"
                 name_key_set.add(k)
 
         return name_key_set
 
     # 提取姓名
-    def extract_name(self, src_dict: dict[str, str], dst_dict: dict[str, str]) -> dict:
+    def extract_name(self, src_dict: dict[str, str], dst_dict: dict[str, str]) -> dict[str, str]:
         name_dsts: list[str] = []
 
         for k in dst_dict:
             if k in self.start_key_set:
-                result: re.Match[str] = __class__.RE_NAME.search(dst_dict.get(k, ""))
+                result: re.Match[str] = __class__.REGEX_NAME.search(dst_dict.get(k, ""))
                 if result is None:
                     name_dsts.append(None)
                 elif k not in self.name_key_set:
                     name_dsts.append(None)
                 elif result.group(1) is not None:
                     name_dsts.append(result.group(1))
-                    dst_dict[k] = __class__.RE_NAME.sub("", dst_dict.get(k, ""))
-                    src_dict[k] = __class__.RE_NAME.sub("", src_dict.get(k, ""))
+                    dst_dict[k] = __class__.REGEX_NAME.sub("", dst_dict.get(k, ""))
+                    src_dict[k] = __class__.REGEX_NAME.sub("", src_dict.get(k, ""))
                 else:
                     name_dsts.append(result.group(2))
-                    dst_dict[k] = __class__.RE_NAME.sub("", dst_dict.get(k, ""))
-                    src_dict[k] = __class__.RE_NAME.sub("", src_dict.get(k, ""))
+                    dst_dict[k] = __class__.REGEX_NAME.sub("", dst_dict.get(k, ""))
+                    src_dict[k] = __class__.REGEX_NAME.sub("", src_dict.get(k, ""))
 
         return name_dsts
-
-    # 生成提示词
-    def generate_prompt(self, src_dict: dict, preceding_items: list[CacheItem], samples: list[str]) -> tuple[list[dict], list[str]]:
-        # 初始化
-        messages = []
-        extra_log = []
-
-        # 基础提示词
-        main = self.prompt_builder.build_main()
-
-        # 参考上文
-        if len(preceding_items) > 0:
-            result = self.prompt_builder.build_preceding(preceding_items)
-            if result != "":
-                main = main + "\n" + result
-                extra_log.append(result)
-
-        # 术语表
-        if self.config.get("glossary_enable") == True:
-            result = self.prompt_builder.build_glossary(src_dict)
-            if result != "":
-                main = main + "\n" + result
-                extra_log.append(result)
-
-        # 控制字符示例
-        result = self.prompt_builder.build_control_characters_samples(samples)
-        if result != "":
-            main = main + "\n" + result
-            extra_log.append(result)
-
-        # 构建提示词列表
-        messages.append({
-            "role": "user",
-            "content": (
-                f"{main}"
-                + "\n" + "原文文本："
-                + "\n" + json.dumps(src_dict, indent = None, ensure_ascii = False)
-            ),
-        })
-
-        # 当目标为 google 系列接口时，转换 messages 的格式
-        if self.platform.get("api_format") == Base.APIFormat.GOOGLE:
-            new = []
-            for m in messages:
-                new.append({
-                    "role": "model" if m.get("role") == "assistant" else m.get("role"),
-                    "parts": m.get("content", ""),
-                })
-            messages = new
-
-        return messages, extra_log
-
-    # 生成提示词 - Sakura
-    def generate_prompt_sakura(self, src_dict: dict) -> tuple[list[dict], list[str]]:
-        # 初始化
-        messages = []
-        extra_log = []
-
-        # 构建系统提示词
-        messages.append({
-            "role": "system",
-            "content": "你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。"
-        })
-
-        # 术语表
-        main = "将下面的日文文本翻译成中文：\n" + "\n".join(src_dict.values())
-        if self.config.get("glossary_enable") == True:
-            result = self.prompt_builder.build_glossary_sakura(src_dict)
-            if result != "":
-                main = (
-                    "根据以下术语表（可以为空）：\n" + result
-                    + "\n" + "将下面的日文文本根据对应关系和备注翻译成中文：\n" + "\n".join(src_dict.values())
-                )
-                extra_log.append(result)
-
-        # 构建提示词列表
-        messages.append({
-            "role": "user",
-            "content": main,
-        })
-
-        return messages, extra_log
 
     # 打印日志表格
     def print_log_table(self, result: list[str], start: int, pt: int, ct: int, srcs: list[str], dsts: list[str], file_log: list[str], console_log: list[str]) -> None:

@@ -1,47 +1,48 @@
+from enum import StrEnum
+from typing import Self
+from typing import Callable
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import pyqtSignal
 
 class EventManager(QObject):
 
-    # 单一实例
-    _singleton = None
-
     # 自定义信号
     # 字典类型或者其他复杂对象应该使用 object 作为信号参数类型，这样可以传递任意 Python 对象，包括 dict
-    signal = pyqtSignal(int, object)
+    signal: pyqtSignal = pyqtSignal(StrEnum, object)
 
     # 事件列表
-    event_callbacks = {}
+    event_callbacks: dict[StrEnum, list[Callable]] = {}
 
     def __init__(self) -> None:
         super().__init__()
-        self.signal.connect(self.process_event, Qt.QueuedConnection)
 
-    # 获取单例
-    def get_singleton() -> "EventManager":
-        if EventManager._singleton == None:
-            EventManager._singleton = EventManager()
+        self.signal.connect(self.process_event, Qt.ConnectionType.QueuedConnection)
 
-        return EventManager._singleton
+    @classmethod
+    def get(cls) -> Self:
+        if not hasattr(cls, "__instance__"):
+            cls.__instance__ = cls()
+
+        return cls.__instance__
 
     # 处理事件
-    def process_event(self, event: int, data: dict) -> None:
+    def process_event(self, event: StrEnum, data: dict) -> None:
         if event in self.event_callbacks:
             for hanlder in self.event_callbacks[event]:
                 hanlder(event, data)
 
     # 触发事件
-    def emit(self, event: int, data: dict) -> None:
+    def emit(self, event: StrEnum, data: dict) -> None:
         self.signal.emit(event, data)
 
     # 订阅事件
-    def subscribe(self, event: int, hanlder: callable) -> None:
-        if event not in self.event_callbacks:
-            self.event_callbacks[event] = []
-        self.event_callbacks[event].append(hanlder)
+    def subscribe(self, event: StrEnum, hanlder: Callable) -> None:
+        if callable(hanlder):
+            self.event_callbacks.setdefault(event, []).append(hanlder)
 
     # 取消订阅事件
-    def unsubscribe(self, event: int, hanlder: callable) -> None:
+    def unsubscribe(self, event: StrEnum, hanlder: Callable) -> None:
         if event in self.event_callbacks:
             self.event_callbacks[event].remove(hanlder)

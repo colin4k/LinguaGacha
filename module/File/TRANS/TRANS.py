@@ -1,32 +1,34 @@
 import os
+import json
 import shutil
 import itertools
 
-import rapidjson as json
-
 from base.Base import Base
-from module.Cache.CacheItem import CacheItem
+from base.BaseLanguage import BaseLanguage
+from module.File.TRANS.KAG import KAG
 from module.File.TRANS.NONE import NONE
 from module.File.TRANS.WOLF import WOLF
 from module.File.TRANS.RENPY import RENPY
 from module.File.TRANS.RPGMAKER import RPGMAKER
+from module.Cache.CacheItem import CacheItem
+from module.Config import Config
 
 class TRANS(Base):
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
 
         # 初始化
-        self.config: dict = config
-        self.input_path: str = config.get("input_folder")
-        self.output_path: str = config.get("output_folder")
-        self.source_language: str = config.get("source_language")
-        self.target_language: str = config.get("target_language")
+        self.config = config
+        self.input_path: str = config.input_folder
+        self.output_path: str = config.output_folder
+        self.source_language: BaseLanguage.Enum = config.source_language
+        self.target_language: BaseLanguage.Enum = config.target_language
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
         items: list[CacheItem] = []
-        for abs_path in set(abs_paths):
+        for abs_path in abs_paths:
             # 获取相对路径
             rel_path = os.path.relpath(abs_path, self.input_path)
 
@@ -203,9 +205,11 @@ class TRANS(Base):
     def get_processor(self, project: dict) -> NONE:
         engine: str = project.get("gameEngine", "")
 
-        if engine.lower() in ("wolf", "wolfrpg"):
+        if engine.lower() in ("kag", "vntrans"):
+            processor: NONE = KAG(project)
+        elif engine.lower() in ("wolf", "wolfrpg"):
             processor: NONE = WOLF(project)
-        elif engine.lower() == "renpy":
+        elif engine.lower() in ("renpy", ):
             processor: NONE = RENPY(project)
         elif engine.lower() in ("2k", "rmjdb", "rmvx", "rmvxace", "rmmv", "rmmz"):
             processor: NONE = RPGMAKER(project)

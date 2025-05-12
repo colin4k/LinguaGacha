@@ -11,7 +11,7 @@
 ## Overview 📢
 - [LinguaGacha](https://github.com/neavo/LinguaGacha) (/ˈlɪŋɡwə ˈɡɑːtʃə/), is an AI-powered next-generation text translator
 - Out of the box, (almost) no setup needed, powerful does not need to be shown through complicated setting options
-- Supports one-click translation between 14 languages
+- Supports one-click translation between 16 languages
   - including `Chinese`, `English`, `Japanese`, `Korean`, `Russian`, `German`, `French`, `Italian`, etc
 - Supports various text types and formats such as `Subtitle`, `E-Book`, and `Game Text`
 - Supports both local and online interfaces such as `Claude`, `ChatGPT`, `DeepSeek`, `SakuraLLM`
@@ -52,14 +52,15 @@
 ## User Guide 📝
 - Overall
   - [Basic Tutorial](https://github.com/neavo/LinguaGacha/wiki/BasicTutorial)　`👈👈 Step-by-step tutorial, easy to follow, a must-read for beginners`
-  - [Best Practices for High-Quality Translation of WOLF Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLF-%E2%80%90-EN)
-  - [Best Practices for High-Quality Translation of RPGMaker Series Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMaker-%E2%80%90-EN)
+  - [Google Gemini Free API](https://github.com/neavo/LinguaGacha/wiki/GoogleGeminiFreeEN)
+  - [Best Practices for High-Quality Translation of WOLF Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLFEN)
+  - [Best Practices for High-Quality Translation of RPGMaker Series Engine Games](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForRPGMakerEN)
 - Video Tutorial
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=NbpyL2fMgDc)
 - Feature Description
-  - [Glossary](https://github.com/neavo/LinguaGacha/wiki/Glossary-%E2%80%90-EN)　　[Replacement](https://github.com/neavo/LinguaGacha/wiki/Replacement-%E2%80%90-EN)　　[Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation-%E2%80%90-EN)
-  - [Batch Correction](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection-%E2%80%90-EN)　　[Partial ReTranslation](https://github.com/neavo/LinguaGacha/wiki/ReTranslation-%E2%80%90-EN)
-  - [Expert Config](https://github.com/neavo/LinguaGacha/wiki/ExpertConfig-%E2%80%90-EN)　　[Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer-%E2%80%90-EN)
+  - [Glossary](https://github.com/neavo/LinguaGacha/wiki/GlossaryEN)　　[Text Preserve](https://github.com/neavo/LinguaGacha/wiki/TextPreserveEN)　　[Text Replacement](https://github.com/neavo/LinguaGacha/wiki/ReplacementEN)
+  - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslationEN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizerEN)
+  - [Treasure Chest - Batch Correction](https://github.com/neavo/LinguaGacha/wiki/BatchCorrectionEN)　　[Treasure Chest - Partial ReTranslatio](https://github.com/neavo/LinguaGacha/wiki/ReTranslationEN)　　[Treasure Chest - Name-Field Extraction](https://github.com/neavo/LinguaGacha/wiki/NameFieldExtractionEN)
 - You can find more details on each feature in the [Wiki](https://github.com/neavo/LinguaGacha/wiki), and you are welcome to share your experience in the [Discussions](https://github.com/neavo/LinguaGacha/discussions)
 
 ## Supported Formats 🏷️
@@ -77,43 +78,29 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
-- 20250408 v0.22.0
-  - OPT - Optimize punctuation repair logic
-  - OPT - Optimize code preservation, repair, and check logic
-  - OPT - Open SakuraLLM model settings
-  - OPT - Automated character name injection, feature introduction [Name Injection](https://github.com/neavo/LinguaGacha/wiki/NameInjection-%E2%80%90-EN)
-    - Automatically complete the unified translation of character name fields
-    - Use character name fields as translation auxiliary information to improve translation quality
-    - The original manual function has been removed
+- 20250506 v0.26.0
+  - NEW - Expert Mode, which enables a series of advanced features:
+    - Expert Settings
+    - Advanced Log Information
+    - [Custom Text Preservation Rules](https://github.com/neavo/LinguaGacha/wiki/TextPreserveEN)
 
-- 20250405 v0.21.2
-  - OPT - Optimized model response stability
-  - OPT - Optimized line break compatibility for [Batch Correction](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection-%E2%80%90-EN)
+- 20250502 v0.25.11
+  - OPT - Added support for auto-saving table data in `Glossary` `Pre-translation Replace` `Post-translation Replace`
+  - FIX - File compatibility
+    - `SRT` Fixed an issue where the first entry could not be read from files encoded with `UTF-8-BOM`
 
-- 20250404 v0.21.1
-  - Detail adjustments and optimizations, including but not limited to:
-    - Optimization of punctuation repair rules
-    - Supports GalGame text with `names` field
+- 20250429 v0.25.10
+  - OPT - Added support for sorting table data by clicking headers
+  - OPT - Automatically convert input data to `UTF-8` encoding
+  - OPT - Added support for switching between `Thinking Mode` and `Normal Mode` for `Qwen3` series models
+  - Fixed - File compatibility
+    - `RPY` Text not requiring translation is now kept original in translated files
 
-- 20250404 v0.21.0
-  - ADD - [Batch Correction](https://github.com/neavo/LinguaGacha/wiki/BatchCorrection-%E2%80%90-EN) Feature
-    - Batch correct errors in the inspection report at once
-  - OPT - Optimized punctuation restoration rules
-    - Punctuation marks in the original text can now be restored more reliably
-
-- 20250401 v0.20.0
-  - OPT - [Translator++](https://dreamsavior.net/translator-plusplus) project file (.trans) rules update
-    - Supports [WOLF Official Translation Tool Exported Text](https://silversecond.booth.pm/items/5151747) (.xlsx)
-    - Refactored support for the `WOLF` engine, expanding the supported engine version scope. See [Wiki](https://github.com/neavo/LinguaGacha/wiki/BestPracticeForWOLF-%E2%80%90-EN) for details
-
-- 20250330 v0.19.2
-  - Optimizations to some pre-processing and post-processing flows, including:
-    - Most of the `‘’` `“”` `「」` at the beginning and end of sentences can be correctly fixed
-    - Automatic fixing of redundant code generated by model
-
-- 20250329 v0.19.1
-  - ADD - Fully Refactored Control Character Retention Feature
-    - In practice, it can achieve nearly `100%` code retention rate in most `WOLF`, `RenPy`, `RPGMaker` games
+- 20250427 v0.25.9
+  - OPT - Add UI setting for `Tasks per minute threshold`
+  - FIX - File compatibility
+    - `ALL` Fixed freezes during task generation caused by repeated full-width spaces
+    - `RPY` Fixed incorrect detection of translation status for text containing quotes
 
 ## Support 😥
 - Runtime logs are stored in `log` folder

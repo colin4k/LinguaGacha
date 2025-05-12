@@ -1,7 +1,7 @@
 import os
+import json
 from functools import partial
 
-import rapidjson as json
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtWidgets import QLayout
 from PyQt5.QtWidgets import QVBoxLayout
@@ -13,6 +13,7 @@ from qfluentwidgets import DropDownPushButton
 from qfluentwidgets import PrimaryDropDownPushButton
 
 from base.Base import Base
+from module.Config import Config
 from module.Localizer.Localizer import Localizer
 from widget.FlowCard import FlowCard
 from frontend.Project.PlatformEditPage import PlatformEditPage
@@ -24,14 +25,11 @@ class PlatformPage(QWidget, Base):
         super().__init__(window)
         self.setObjectName(text.replace(" ", "-"))
 
-        # 默认配置
-        self.default = {
-            "activate_platform": 0,
-            "platforms": self.load_default_platforms(),
-        }
-
-        # 载入并保存默认配置
-        config = self.save_config(self.load_config_from_default())
+        # 载入配置
+        config = Config().load()
+        if config.platforms == None:
+            config.platforms = self.load_default_platforms()
+        config.save()
 
         # 设置主容器
         self.vbox = QVBoxLayout(self)
@@ -54,7 +52,7 @@ class PlatformPage(QWidget, Base):
         })
 
     # 接口测试完成
-    def platform_test_done(self, event: int, data: dict) -> None:
+    def platform_test_done(self, event: str, data: dict) -> None:
         self.emit(Base.Event.APP_TOAST_SHOW, {
             "type": Base.ToastType.SUCCESS if data.get("result", True) else Base.ToastType.ERROR,
             "message": data.get("result_msg", "")
@@ -62,61 +60,65 @@ class PlatformPage(QWidget, Base):
 
     # 加载默认平台数据
     def load_default_platforms(self) -> list[dict]:
-        platforms = []
+        platforms:list[dict[str, str | list[str]]] = []
         platforms_path = f"./resource/platforms/{Localizer.get_app_language().lower()}/"
         for path in [file.path for file in os.scandir(platforms_path) if file.is_file() and file.name.endswith(".json")]:
             with open(path, "r", encoding = "utf-8-sig") as reader:
                 platforms.append(json.load(reader))
 
+        # 重设 id 以避免 id 不连续的问题
+        for i, platform in enumerate(sorted(platforms, key = lambda x: x.get("id"))):
+            platform["id"] = i
+
         return sorted(platforms, key = lambda x: x.get("id"))
 
     # 添加接口
     def add_platform(self, item: dict, widget: FlowCard, window: FluentWindow) -> None:
-        # 载入配置文件
-        config = self.load_config()
+        # 载入配置
+        config = Config().load()
 
         # 添加指定条目
-        item["id"] = len(config.get("platforms", []))
-        config["platforms"].append(item)
+        item["id"] = len(config.platforms)
+        config.platforms.append(item)
 
         # 保存配置文件
-        self.save_config(config)
+        config.save()
 
         # 更新控件
         self.update_custom_platform_widgets(widget, window)
 
     # 删除接口
     def delete_platform(self, id: int, widget: FlowCard, window: FluentWindow) -> None:
-        # 载入配置文件
-        config = self.load_config()
+        # 载入配置
+        config = Config().load()
 
         # 删除指定条目
-        for i, platform in enumerate(config.get("platforms", [])):
+        for i, platform in enumerate(config.platforms):
             if platform.get("id") == id:
-                del config["platforms"][i]
+                del config.platforms[i]
 
                 # 修正激活接口的ID
-                if config.get("activate_platform", 0) == i:
-                    config["activate_platform"] = 0
-                elif config["activate_platform"] > i:
-                    config["activate_platform"] = config["activate_platform"] - 1
+                if config.activate_platform == i:
+                    config.activate_platform = 0
+                elif config.activate_platform > i:
+                    config.activate_platform = config.activate_platform - 1
                 break
 
         # 修正条目id
-        for i, platform in enumerate(sorted(config.get("platforms", []), key = lambda x: x.get("id"))):
-            config["platforms"][i]["id"] = i
+        for i, platform in enumerate(sorted(config.platforms, key = lambda x: x.get("id"))):
+            config.platforms[i]["id"] = i
 
         # 保存配置文件
-        self.save_config(config)
+        config.save()
 
         # 更新控件
         self.update_custom_platform_widgets(widget, window)
 
     # 激活接口
     def activate_platform(self, id: int, widget: FlowCard, window: FluentWindow) -> None:
-        config = self.load_config()
-        config["activate_platform"] = id
-        self.save_config(config)
+        config = Config().load()
+        config.activate_platform = id
+        config.save()
 
         # 更新控件
         self.update_custom_platform_widgets(widget, window)
@@ -134,12 +136,12 @@ class PlatformPage(QWidget, Base):
 
     # 更新自定义平台控件
     def update_custom_platform_widgets(self, widget: FlowCard, window: FluentWindow) -> None:
-        config = self.load_config()
-        platforms = sorted(config.get("platforms"), key = lambda x: x.get("id", 0))
+        config = Config().load()
+        platforms = sorted(config.platforms, key = lambda x: x.get("id", 0))
 
         widget.take_all_widgets()
         for item in platforms:
-            if item.get("id", 0) != config.get("activate_platform", 0):
+            if item.get("id", 0) != config.activate_platform:
                 drop_down_push_button = DropDownPushButton(item.get("name"))
             else:
                 drop_down_push_button = PrimaryDropDownPushButton(item.get("name"))
@@ -190,7 +192,8 @@ class PlatformPage(QWidget, Base):
             drop_down_push_button.setMenu(menu)
 
     # 添加控件
-    def add_widget(self, parent: QLayout, config: dict, window: FluentWindow) -> None:
+    def add_widget(self, parent: QLayout, config: Config, window: FluentWindow) -> None:
+
         def init(widget: FlowCard) -> None:
             # 添加新增按钮
             add_button = DropDownPushButton(Localizer.get().add)
@@ -209,8 +212,9 @@ class PlatformPage(QWidget, Base):
             self.update_custom_platform_widgets(widget, window)
 
         self.flow_card = FlowCard(
-            Localizer.get().platform_page_widget_add_title,
-            Localizer.get().platform_page_widget_add_content,
+            parent = self,
+            title = Localizer.get().platform_page_widget_add_title,
+            description = Localizer.get().platform_page_widget_add_content,
             init = init,
         )
         parent.addWidget(self.flow_card)

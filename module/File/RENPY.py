@@ -2,7 +2,9 @@ import os
 import re
 
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
 from module.Cache.CacheItem import CacheItem
+from module.Config import Config
 
 class RENPY(Base):
 
@@ -44,20 +46,24 @@ class RENPY(Base):
     # 匹配 RenPy 文本的规则
     RE_RENPY = re.compile(r"\"(.*?)(?<!\\)\"(?!\")", flags = re.IGNORECASE)
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: Config) -> None:
         super().__init__()
 
         # 初始化
-        self.config: dict = config
-        self.input_path: str = config.get("input_folder")
-        self.output_path: str = config.get("output_folder")
-        self.source_language: str = config.get("source_language")
-        self.target_language: str = config.get("target_language")
+        self.config = config
+        self.input_path: str = config.input_folder
+        self.output_path: str = config.output_folder
+        self.source_language: BaseLanguage.Enum = config.source_language
+        self.target_language: BaseLanguage.Enum = config.target_language
 
     # 读取
     def read_from_path(self, abs_paths: list[str]) -> list[CacheItem]:
+
+        def process(text: str) -> str:
+            return text.replace("\\n", "\n").replace("\\\"", "\"")
+
         items: list[CacheItem] = []
-        for abs_path in set(abs_paths):
+        for abs_path in abs_paths:
             # 获取相对路径
             rel_path = os.path.relpath(abs_path, self.input_path)
 
@@ -73,12 +79,12 @@ class RENPY(Base):
                 if is_content_line == False and len(results) > 0:
                     continue
                 elif is_content_line == True and len(results) == 1:
-                    src = results[0].replace("\\n", "\n").replace("\\\"", "\"")
-                    dst = self.find_dst(i + 1, lines)
+                    src = results[0]
+                    dst = self.find_dst(i + 1, line, lines)
                     name = None
                 elif is_content_line == True and len(results) >= 2:
-                    src = results[1].replace("\\n", "\n").replace("\\\"", "\"")
-                    dst = self.find_dst(i + 1, lines)
+                    src = results[1]
+                    dst = self.find_dst(i + 1, line, lines)
                     name = results[0]
                 else:
                     src = ""
@@ -89,7 +95,7 @@ class RENPY(Base):
                 if src == "":
                     items.append(
                         CacheItem({
-                            "src": src,
+                            "src": process(src),
                             "dst": dst,
                             "name_src": name,
                             "name_dst": name,
@@ -104,7 +110,7 @@ class RENPY(Base):
                 elif dst != "" and src != dst:
                     items.append(
                         CacheItem({
-                            "src": src,
+                            "src": process(src),
                             "dst": dst,
                             "name_src": name,
                             "name_dst": name,
@@ -117,10 +123,16 @@ class RENPY(Base):
                         })
                     )
                 else:
+                    # 此时存在两种情况：
+                    # 1. 源文与译文相同
+                    # 2. 源文不为空且译文为空
+                    # 在后续翻译步骤中，语言过滤等情况可能导致实际不翻译此条目
+                    # 而如果翻译后文件中 译文 为空，则实际游戏内文本显示也将为空
+                    # 为了避免这种情况，应该在添加数据时直接设置 dst 为 src 以避免出现预期以外的空译文
                     items.append(
                         CacheItem({
-                            "src": src,
-                            "dst": dst,
+                            "src": process(src),
+                            "dst": process(src),
                             "name_src": name,
                             "name_dst": name,
                             "extra_field": line,
@@ -154,16 +166,19 @@ class RENPY(Base):
             if item.get_file_type() == CacheItem.FileType.RENPY
         ]
 
-        # 统一姓名
-        self.uniform_name(target)
+        # 统一或还原姓名字段
+        if self.config.write_translated_name_fields_to_file == False:
+            self.revert_name(target)
+        else:
+            self.uniform_name(target)
 
         # 按文件路径分组
-        data: dict[str, list[str]] = {}
+        group: dict[str, list[str]] = {}
         for item in target:
-            data.setdefault(item.get_file_path(), []).append(item)
+            group.setdefault(item.get_file_path(), []).append(item)
 
         # 分别处理每个文件
-        for rel_path, items in data.items():
+        for rel_path, items in group.items():
             # 按行号排序
             items = sorted(items, key = lambda x: x.get_row())
 
@@ -200,24 +215,40 @@ class RENPY(Base):
                 writer.write("\n".join(result))
 
     # 获取译文
-    def find_dst(self, start: int, lines: list[str]) -> str:
+    def find_dst(self, start: int, line: str, lines: list[str]) -> str:
         # 越界检查
         if start >= len(lines):
             return ""
 
         # 遍历剩余行寻找目标数据
-        for line in lines[start:]:
-            results: list[str] = RENPY.RE_RENPY.findall(line)
-            is_content_line = line.startswith("    # ") or line.startswith("    old ")
-
-            if is_content_line == False and len(results) == 1:
-                return results[0]
-            elif is_content_line == False and len(results) >= 2:
-                return results[1]
+        line = line.removeprefix("    # ").removeprefix("    old ")
+        for line_ex in lines[start:]:
+            line_ex = line_ex.removeprefix("    ").removeprefix("    new ")
+            results: list[str] = RENPY.RE_RENPY.findall(line_ex)
+            if RENPY.RE_RENPY.sub("", line) == RENPY.RE_RENPY.sub("", line_ex):
+                if len(results) == 1:
+                    return results[0]
+                elif len(results) >= 2:
+                    return results[1]
 
         return ""
 
-    # 统一姓名
+    # 还原姓名字段
+    def revert_name(self, items: list[CacheItem]) -> list[CacheItem]:
+        for item in items:
+            name_src = item.get_name_src()
+            name_dst = item.get_name_dst()
+
+            # 有效性检查
+            if name_src is None or name_dst is None:
+                continue
+
+            if isinstance(name_src, str):
+                item.set_name_dst(item.get_name_src())
+            elif isinstance(name_src, list):
+                item.set_name_dst(item.get_name_src())
+
+    # 统一姓名字段
     def uniform_name(self, items: list[CacheItem]) -> list[CacheItem]:
         # 统计
         result: dict[str, dict] = {}
