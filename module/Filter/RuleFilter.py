@@ -44,7 +44,7 @@ class RuleFilter():
 
             # 格式校验
             # isdecimal
-            # 字符串中的字符是否全是十进制数字。也就是说，只有那些在数字系统中被认为是“基本”的数字字符（0-9）才会返回 True。
+            # 字符串中的字符是否全是十进制数字。也就是说，只有那些在数字系统中被认为是"基本"的数字字符（0-9）才会返回 True。
             # isdigit
             # 字符串中的字符是否都是数字字符。它不仅检查十进制数字，还包括其他可以表示数字的字符，如数字上标、罗马数字、圆圈数字等。
             # isnumeric
@@ -65,7 +65,7 @@ class RuleFilter():
                 continue
 
             # 符合目标规则
-            if any(re.findall(v, line, flags = re.IGNORECASE) != [] for v in RuleFilter.RE_ALL):
+            if any(v.findall(line) != [] for v in RuleFilter.RE_ALL):
                 flags.append(True)
                 continue
 
