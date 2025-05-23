@@ -1,7 +1,8 @@
+from typing import Callable
+
 from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QVBoxLayout
-
 from qfluentwidgets import CardWidget
 from qfluentwidgets import PushButton
 from qfluentwidgets import CaptionLabel
@@ -9,13 +10,13 @@ from qfluentwidgets import StrongBodyLabel
 
 class PushButtonCard(CardWidget):
 
-    def __init__(self, title: str, description: str, init = None, clicked = None) -> None:
+    def __init__(self, title: str, description: str, init: Callable = None, clicked: Callable = None) -> None:
         super().__init__(None)
 
         # 设置容器
         self.setBorderRadius(4)
-        self.container = QHBoxLayout(self)
-        self.container.setContentsMargins(16, 16, 16, 16) # 左、上、右、下
+        self.root = QHBoxLayout(self)
+        self.root.setContentsMargins(16, 16, 16, 16) # 左、上、右、下
 
         # 文本控件
         self.vbox = QVBoxLayout()
@@ -26,29 +27,35 @@ class PushButtonCard(CardWidget):
 
         self.vbox.addWidget(self.title_label)
         self.vbox.addWidget(self.description_label)
-        self.container.addLayout(self.vbox)
+        self.root.addLayout(self.vbox)
 
         # 填充
-        self.container.addStretch(1)
+        self.root.addStretch(1)
 
         # 添加控件
         self.push_button = PushButton("", self)
-        self.container.addWidget(self.push_button)
+        self.root.addWidget(self.push_button)
 
-        if init is not None:
+        if callable(init):
             init(self)
 
-        if clicked is not None:
+        if callable(clicked):
             self.push_button.clicked.connect(lambda _: clicked(self))
 
-    def set_title(self, title: str) -> None:
-        self.title_label.setText(title)
+    def add_widget(self, widget) -> None:
+        return self.root.addWidget(widget)
 
-    def set_description(self, description: str) -> None:
-        self.description_label.setText(description)
+    def add_spacing(self, spacing: int) -> None:
+        self.root.addSpacing(spacing)
 
-    def set_text(self, text: str) -> None:
-        self.push_button.setText(text)
+    def add_stretch(self, stretch: int) -> None:
+        self.root.addStretch(stretch)
 
-    def set_icon(self, icon: str) -> None:
-        self.push_button.setIcon(icon)
+    def get_title_label(self) -> StrongBodyLabel:
+        return self.title_label
+
+    def get_description_label(self) -> CaptionLabel:
+        return self.description_label
+
+    def get_push_button(self) -> PushButton:
+        return self.push_button

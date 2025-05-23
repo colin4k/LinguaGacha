@@ -1,6 +1,7 @@
 import re
 import json
 import threading
+from functools import lru_cache
 
 import httpx
 import openai
@@ -13,17 +14,11 @@ from module.Config import Config
 from module.Localizer.Localizer import Localizer
 from module.VersionManager import VersionManager
 
-# 接口请求器
-class TranslatorRequester(Base):
+class TaskRequester(Base):
 
     # 类线程锁
-    API_KEY_LOCK = threading.Lock()
-
-    # 客户端
-    GOOGLE_CLIENTS: dict[str, genai.Client] = {}
-    SAKURA_CLIENTS: dict[str, openai.OpenAI] = {}
-    OPENAI_CLIENTS: dict[str, openai.OpenAI] = {}
-    ANTHROPIC_CLIENTS: dict[str, anthropic.Anthropic] = {}
+    API_KEY_LOCK: threading.Lock = threading.Lock()
+    API_KEY_INDEX: int = 0
 
     # qwen3_instruct_8b_q6k
     RE_QWEN3: re.Pattern = re.compile(r"qwen3", flags = re.IGNORECASE)
@@ -51,10 +46,56 @@ class TranslatorRequester(Base):
     # 重置
     @classmethod
     def reset(cls) -> None:
-        cls.GOOGLE_CLIENTS: dict[str, genai.Client] = {}
-        cls.SAKURA_CLIENTS: dict[str, openai.OpenAI] = {}
-        cls.OPENAI_CLIENTS: dict[str, openai.OpenAI] = {}
-        cls.ANTHROPIC_CLIENTS: dict[str, anthropic.Anthropic] = {}
+        cls.API_KEY_INDEX: int = 0
+        cls.get_client.cache_clear()
+
+    @classmethod
+    def get_key(cls, keys: list[str]) -> str:
+        with cls.API_KEY_LOCK:
+            if len(keys) == 1:
+                return keys[0]
+            elif cls.API_KEY_INDEX >= len(keys) - 1:
+                cls.API_KEY_INDEX = 0
+                return keys[0]
+            else:
+                cls.API_KEY_INDEX = cls.API_KEY_INDEX + 1
+                return keys[cls.API_KEY_INDEX]
+
+    # 获取客户端
+    @classmethod
+    @lru_cache(maxsize = None)
+    def get_client(cls, url: str, key: str, format: Base.APIFormat, timeout: int) -> openai.OpenAI | genai.Client | anthropic.Anthropic:
+        if format == Base.APIFormat.SAKURALLM:
+            return openai.OpenAI(
+                base_url = url,
+                api_key = key,
+                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                max_retries = 1,
+            )
+        elif format == Base.APIFormat.GOOGLE:
+            # https://github.com/googleapis/python-genai
+            # https://ai.google.dev/gemini-api/docs/libraries
+            return genai.Client(
+                api_key = key,
+                http_options = types.HttpOptions(
+                    timeout = timeout * 1000,
+                    api_version = "v1alpha",
+                ),
+            )
+        elif format == Base.APIFormat.ANTHROPIC:
+            return anthropic.Anthropic(
+                base_url = url,
+                api_key = key,
+                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                max_retries = 1,
+            )
+        else:
+            return openai.OpenAI(
+                base_url = url,
+                api_key = key,
+                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                max_retries = 1,
+            )
 
     # 发起请求
     def request(self, messages: list[dict]) -> tuple[bool, str, int, int]:
@@ -98,65 +139,6 @@ class TranslatorRequester(Base):
 
         return skip, response_think, response_result, input_tokens, output_tokens
 
-    # 获取客户端
-    def get_client(self, platform: dict, timeout: int) -> openai.OpenAI | genai.Client | anthropic.Anthropic:
-        with TranslatorRequester.API_KEY_LOCK:
-            # 初始化索引
-            if getattr(TranslatorRequester, "_api_key_index", None) is None:
-                TranslatorRequester._api_key_index = 0
-
-            # 轮询获取密钥
-            keys = platform.get("api_key", [])
-            if len(keys) == 1:
-                api_key = keys[0]
-            elif TranslatorRequester._api_key_index >= len(keys) - 1:
-                TranslatorRequester._api_key_index = 0
-                api_key = keys[0]
-            else:
-                TranslatorRequester._api_key_index = TranslatorRequester._api_key_index + 1
-                api_key = keys[TranslatorRequester._api_key_index]
-
-            # 从缓存中获取客户端
-            if platform.get("api_format") == Base.APIFormat.SAKURALLM:
-                if api_key not in TranslatorRequester.SAKURA_CLIENTS:
-                    TranslatorRequester.SAKURA_CLIENTS[api_key] = openai.OpenAI(
-                        base_url = platform.get("api_url"),
-                        api_key = api_key,
-                        timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
-                        max_retries = 1,
-                    )
-                return TranslatorRequester.SAKURA_CLIENTS.get(api_key)
-            elif platform.get("api_format") == Base.APIFormat.GOOGLE:
-                # https://github.com/googleapis/python-genai
-                # https://ai.google.dev/gemini-api/docs/libraries
-                if api_key not in TranslatorRequester.GOOGLE_CLIENTS:
-                    TranslatorRequester.GOOGLE_CLIENTS[api_key] = genai.Client(
-                        api_key = api_key,
-                        http_options = types.HttpOptions(
-                            timeout = timeout * 1000,
-                            api_version = "v1alpha",
-                        ),
-                    )
-                return TranslatorRequester.GOOGLE_CLIENTS.get(api_key)
-            elif platform.get("api_format") == Base.APIFormat.ANTHROPIC:
-                if api_key not in TranslatorRequester.ANTHROPIC_CLIENTS:
-                    TranslatorRequester.ANTHROPIC_CLIENTS[api_key] = anthropic.Anthropic(
-                        base_url = platform.get("api_url"),
-                        api_key = api_key,
-                        timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
-                        max_retries = 1,
-                    )
-                return TranslatorRequester.ANTHROPIC_CLIENTS.get(api_key)
-            else:
-                if api_key not in TranslatorRequester.OPENAI_CLIENTS:
-                    TranslatorRequester.OPENAI_CLIENTS[api_key] = openai.OpenAI(
-                        base_url = platform.get("api_url"),
-                        api_key = api_key,
-                        timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
-                        max_retries = 1,
-                    )
-                return TranslatorRequester.OPENAI_CLIENTS.get(api_key)
-
     # 生成请求参数
     def generate_sakura_args(self, messages: list[dict[str, str]], thinking: bool, args: dict[str, float]) -> dict:
         args: dict = args | {
@@ -174,9 +156,11 @@ class TranslatorRequester(Base):
     def request_sakura(self, messages: list[dict[str, str]], thinking: bool, args: dict[str, float]) -> tuple[bool, str, str, int, int]:
         try:
             # 获取客户端
-            client: openai.OpenAI = self.get_client(
-                self.platform,
-                self.config.request_timeout,
+            client: openai.OpenAI = __class__.get_client(
+                url = self.platform.get("api_url"),
+                key = __class__.get_key(self.platform.get("api_key")),
+                format = self.platform.get("api_format"),
+                timeout = self.config.request_timeout,
             )
 
             # 发起请求
@@ -244,9 +228,11 @@ class TranslatorRequester(Base):
     def request_openai(self, messages: list[dict[str, str]], thinking: bool, args: dict[str, float]) -> tuple[bool, str, str, int, int]:
         try:
             # 获取客户端
-            client: openai.OpenAI = self.get_client(
-                self.platform,
-                self.config.request_timeout,
+            client: openai.OpenAI = __class__.get_client(
+                url = self.platform.get("api_url"),
+                key = __class__.get_key(self.platform.get("api_key")),
+                format = self.platform.get("api_format"),
+                timeout = self.config.request_timeout,
             )
 
             # 发起请求
@@ -331,9 +317,11 @@ class TranslatorRequester(Base):
     def request_google(self, messages: list[dict[str, str]], thinking: bool, args: dict[str, float]) -> tuple[bool, str, int, int]:
         try:
             # 获取客户端
-            client: genai.Client = self.get_client(
-                self.platform,
-                self.config.request_timeout,
+            client: genai.Client = __class__.get_client(
+                url = self.platform.get("api_url"),
+                key = __class__.get_key(self.platform.get("api_key")),
+                format = self.platform.get("api_format"),
+                timeout = self.config.request_timeout,
             )
 
             # 发起请求
@@ -403,9 +391,11 @@ class TranslatorRequester(Base):
     def request_anthropic(self, messages: list[dict[str, str]], thinking: bool, args: dict[str, float]) -> tuple[bool, str, str, int, int]:
         try:
             # 获取客户端
-            client: anthropic.Anthropic = self.get_client(
-                self.platform,
-                self.config.request_timeout,
+            client: anthropic.Anthropic = __class__.get_client(
+                url = self.platform.get("api_url"),
+                key = __class__.get_key(self.platform.get("api_key")),
+                format = self.platform.get("api_format"),
+                timeout = self.config.request_timeout,
             )
 
             # 发起请求

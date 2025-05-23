@@ -73,7 +73,7 @@ class ReTranslationPage(QWidget, Base):
 
         def init(widget: GroupCard) -> None:
             self.keyword_text_edit = PlainTextEdit(self)
-            self.keyword_text_edit.setPlaceholderText(Localizer.get().re_translation_page_white_list_placeholder)
+            self.keyword_text_edit.setPlaceholderText(Localizer.get().placeholder)
             widget.add_widget(self.keyword_text_edit)
 
         self.keyword_text_edit: PlainTextEdit = None
@@ -149,7 +149,7 @@ class ReTranslationPage(QWidget, Base):
             })
 
             # 写入缓存文件
-            CacheManager(tick = False).save_to_file(
+            CacheManager(service = False).save_to_file(
                 project = project,
                 items = items,
                 output_folder = config.output_folder,

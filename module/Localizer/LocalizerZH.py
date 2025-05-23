@@ -18,6 +18,8 @@ class LocalizerZH():
     add: str = "新增"
     edit: str = "修改"
     none: str = "无"
+    back: str = "返回"
+    next: str = "下一个"
     stop: str = "停止"
     start: str = "开始"
     timer: str = "定时器"
@@ -26,22 +28,22 @@ class LocalizerZH():
     warning: str = "警告"
     confirm: str = "确认"
     cancel: str = "取消"
-    enable: str = "启用"
-    disable: str = "禁用"
     auto: str = "自动"
     wiki: str = "功能说明"
+    open: str = "打开"
+    select: str = "选择"
     inject: str = "注入"
     filter: str = "过滤"
+    search: str = "搜索"
     generate: str = "生成"
+    placeholder: str = "请输入关键词 …"
     task_success: str = "任务执行成功 …"
-    task_failure: str = "任务执行失败 …"
     alert_no_data: str = "没有有效数据 …"
     alert_reset_timer: str = "将重置定时器，是否确认 … ？"
     alert_reset_translation: str = "将重置尚未完成的翻译任务，是否确认开始新的翻译任务 … ？"
 
     # 主页面
     app_close_message_box: str = "确定是否退出程序 … ？"
-    app_close_message_box_msg: str = "主窗口已关闭，稍后应用将自动退出 …"
     app_new_version: str = "点击下载更新版本！"
     app_new_version_toast: str = "已找到新版本，版本号为 {VERSION}，请点击左下角按钮下载更新 …"
     app_new_version_update: str = "正在下载 {PERCENT} …"
@@ -160,9 +162,9 @@ class LocalizerZH():
     app_settings_page_font_hinting_content: str = "启用此功能后，应用内 UI 字体的边缘渲染将更加圆润（将在应用重启后生效）"
     app_settings_page_scale_factor_title: str = "全局缩放比例"
     app_settings_page_scale_factor_content: str = "启用此功能后，应用界面将按照所选比例进行缩放（将在应用重启后生效）"
-    app_settings_page_proxy_url: str = "请输入网络代理地址 …"
+    app_settings_page_proxy_url: str = "示例 - http://127.0.0.1:7890"
     app_settings_page_proxy_url_title: str = "网络代理"
-    app_settings_page_proxy_url_content: str = "启用此功能后，将使用设置的代理地址发送网络请求，例如 http://127.0.0.1:7890"
+    app_settings_page_proxy_url_content: str = "启用此功能后，将使用设置的代理地址发送网络请求（将在应用重启后生效）"
     app_settings_page_close: str = "应用即将关闭，请确认 …"
 
     # 接口管理
@@ -211,15 +213,15 @@ class LocalizerZH():
 
     # 项目设置
     project_page_source_language_title: str = "原文语言"
-    project_page_source_language_content: str = "设置当前翻译项目所使用的原文文本的语言"
+    project_page_source_language_content: str = "设置当前项目中输入文本的语言"
     project_page_target_language_title: str = "译文语言"
-    project_page_target_language_content: str = "设置当前翻译项目所使用的译文文本的语言"
+    project_page_target_language_content: str = "设置当前项目中输出文本的语言"
     project_page_input_folder_title: str = "输入文件夹"
     project_page_input_folder_content: str = "当前输入文件夹为"
-    project_page_input_folder_btn: str = "选择文件夹"
     project_page_output_folder_title: str = "输出文件夹（不能与输入文件夹相同）"
     project_page_output_folder_content: str = "当前输出文件夹为"
-    project_page_output_folder_btn: str = "选择文件夹"
+    project_page_output_folder_open_on_finish_title: str = "任务完成时打开输出文件夹"
+    project_page_output_folder_open_on_finish_content: str = "启用此功能后，将在任务完成时自动打开输出文件夹"
     project_page_traditional_chinese_title: str = "使用繁体输出中文"
     project_page_traditional_chinese_content: str = "启用此功能后，在译文语言设置为中文时，将使用繁体字形输出中文文本"
 
@@ -238,9 +240,8 @@ class LocalizerZH():
     translation_page_card_token: str = "累计消耗"
     translation_page_card_task: str = "实时任务数"
     translation_page_alert_pause: str = "停止的翻译任务可以随时继续翻译，是否确定停止任务 … ？"
-    translation_page_continue: str = "继续翻译"
-    translation_page_export: str = "导出翻译数据"
-    translation_page_export_toast: str = "已根据当前的翻译数据在输出文件夹下生成翻译文件 …"
+    translation_page_continue: str = "继续任务"
+    translation_page_export: str = "导出任务数据"
     translation_page_timer: str = "请设置延迟启动前要等待的时间"
 
     # 基础设置
@@ -264,7 +265,7 @@ class LocalizerZH():
     basic_settings_page_token_threshold_content: str = "每个任务所包含的文本的最大 Token 数量"
     basic_settings_page_request_timeout_title: str = "超时时间阈值"
     basic_settings_page_request_timeout_content: str = (
-        "翻译任务发起请求时等待模型回复的最长时间（秒），超时仍未收到回复，则会判断为任务失败"
+        "发起请求时等待模型回复的最长时间（秒），超时仍未收到回复，则会判断为任务失败"
         ""
         ""
     )
@@ -278,7 +279,7 @@ class LocalizerZH():
     expert_settings_page_preceding_disable_on_local_desc: str = "本地模型性能较差，参考上文功能大部分时候是负面效果，默认禁用"
     expert_settings_page_deduplication_in_bilingual: str = "双语输出文件中对重复行去重"
     expert_settings_page_deduplication_in_bilingual_desc: str = "在双语输出文件中，原文与译文一致时是否去重，默认启用"
-    expert_settings_page_write_translated_name_fields_to_file: str = "将姓名字段译文写入译文文件"
+    expert_settings_page_write_translated_name_fields_to_file: str = "将姓名字段译文写入输出文件"
     expert_settings_page_write_translated_name_fields_to_file_desc: str = (
         "部分 <font color='darkgoldenrod'><b>GalGame</b></font> 中，姓名字段数据与立绘、配音等资源文件绑定，翻译后会报错，此时可以关闭该功能，默认启用"
         "<br>"
@@ -304,10 +305,9 @@ class LocalizerZH():
     quality_import_toast: str = "数据已导入 …"
     quality_export: str = "导出"
     quality_export_toast: str = "数据已导出到应用根目录 …"
-    quality_add: str = "添加"
-    quality_add_toast: str = "新行已添加 …"
     quality_save: str = "保存"
     quality_save_toast: str = "数据已保存 …"
+    quality_merge_duplication: str = "已合并重复数据 …"
     quality_preset: str = "预设"
     quality_reset: str = "重置"
     quality_reset_toast: str = "数据已重置 …"
@@ -315,7 +315,6 @@ class LocalizerZH():
     quality_select_file: str = "选择文件"
     quality_select_file_type: str = "支持的数据格式 (*.json *.xlsx)"
     quality_delete_row: str = "删除行"
-    quality_insert_row: str = "插入行"
     quality_switch_regex: str = "切换正则模式"
 
     # 术语表
@@ -473,7 +472,6 @@ class LocalizerZH():
         ""
         ""
     )
-    re_translation_page_white_list_placeholder: str = "请输入关键字 …"
     re_translation_page_alert_not_equal: str = "原文与译文的行数不匹配 …"
 
     # 百宝箱 - 姓名字段提取

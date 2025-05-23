@@ -4,8 +4,8 @@ from enum import StrEnum
 import openpyxl
 import openpyxl.styles
 import openpyxl.worksheet.worksheet
-from PyQt5.QtCore import Qt
 from PyQt5.QtCore import QModelIndex
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QTableWidgetItem
 from qfluentwidgets import TableWidget
 
@@ -40,10 +40,24 @@ class TableManager():
         self.set_updating(True)
 
         # 去重
-        self.data = list({v.get("src"): v for v in self.data}.values())
+        dels: set[int] = set()
+        for i in range(len(self.data)):
+            for k in range(i + 1, len(self.data)):
+                x = self.data[i]
+                y = self.data[k]
+                if x.get("src") == y.get("src"):
+                    if x.get("dst") != "" and y.get("dst") == "":
+                        dels.add(k)
+                    elif x.get("dst") == "" and y.get("dst") == "" and x.get("info") != "" and y.get("info") == "":
+                        dels.add(k)
+                    elif x.get("dst") == "" and y.get("dst") == "" and x.get("regex") != "" and y.get("regex") == "":
+                        dels.add(k)
+                    else:
+                        dels.add(i)
+        self.data = [v for i, v in enumerate(self.data) if i not in dels]
 
         # 填充表格
-        self.table.setRowCount(max(12, len(self.data) + 3))
+        self.table.setRowCount(max(12, len(self.data) + 8))
         for row in range(self.table.rowCount()):
             for col in range(self.table.columnCount()):
                 item = self.table.item(row, col)
@@ -115,6 +129,29 @@ class TableManager():
         with open(f"{path}.json", "w", encoding = "utf-8") as writer:
             writer.write(json.dumps(self.data, indent = 4, ensure_ascii = False))
 
+    # 搜索
+    def search(self, keyword: str, start: int) -> int:
+        result: int = -1
+
+        # 从指定位置开始搜索
+        for i, entry in enumerate(self.data):
+            if i <= start:
+                continue
+            if any(keyword in v for v in entry.values() if isinstance(v, str)):
+                result = i
+                break
+
+        # 如果未找到则从头开始搜索
+        if result == -1:
+            for i, entry in enumerate(self.data):
+                if i > start:
+                    continue
+                if any(keyword in v for v in entry.values() if isinstance(v, str)):
+                    result = i
+                    break
+
+        return result
+
     # 获取数据
     def get_data(self) -> list[dict[str, str]]:
         return self.data
@@ -145,17 +182,6 @@ class TableManager():
             pass
 
         return item
-
-    # 插入行事件
-    def insert_row(self) -> None:
-        selected_index = self.table.selectedIndexes()
-
-        # 有效性检验
-        if selected_index == None or len(selected_index) == 0:
-            return
-
-        # 插入空行
-        self.table.insertRow(selected_index[0].row())
 
     # 删除行事件
     def delete_row(self) -> None:
@@ -191,77 +217,37 @@ class TableManager():
             else:
                 item.setText("")
 
-    # 排序事件
-    def sort_indicator_changed(self, column: int, order: int) -> None:
-        # 更新开始
-        self.set_updating(True)
+    # 获取行数据
+    def get_entry_by_row(self, row: int) -> dict[str, str | bool]:
+        items: list[QTableWidgetItem] = [
+            self.table.item(row, col)
+            for col in range(self.table.columnCount())
+        ]
 
-        # 查找空行
-        empty_rows: list[int] = []
-        for row in range(self.table.rowCount()):
-            if all(
-                isinstance(self.table.item(row, col), QTableWidgetItem) and self.table.item(row, col).text() == ""
-                for col in range(self.table.columnCount())
-            ):
-                empty_rows.append(row)
-
-        # 逆序删除并去重以避免索引错误
-        for row in sorted(empty_rows, reverse = True):
-            self.table.removeRow(row)
-
-        # 执行排序
-        self.table.sortByColumn(column, order)
-
-        # 补齐空行并插入空文本
-        self.table.setRowCount(self.table.rowCount() + len(empty_rows))
-        for row in range(self.table.rowCount()):
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                if item is not None:
-                    pass
-                else:
-                    self.table.setItem(row, col, self.generate_item(col))
-
-        # 更新结束
-        self.set_updating(False)
+        if self.type == __class__.Type.GLOSSARY:
+            return {
+                "src": items[0].text().strip() if isinstance(items[0], QTableWidgetItem) else "",
+                "dst": items[1].text().strip() if isinstance(items[1], QTableWidgetItem) else "",
+                "info": items[2].text().strip() if isinstance(items[2], QTableWidgetItem) else "",
+            }
+        elif self.type == __class__.Type.REPLACEMENT:
+            return {
+                "src": items[0].text().strip() if isinstance(items[0], QTableWidgetItem) else "",
+                "dst": items[1].text().strip() if isinstance(items[1], QTableWidgetItem) else "",
+                "regex": items[2].text().strip() == "✅" if isinstance(items[2], QTableWidgetItem) else False,
+            }
+        elif self.type == __class__.Type.TEXT_PRESERVE:
+            return {
+                "src": items[0].text().strip() if isinstance(items[0], QTableWidgetItem) else "",
+                "info": items[1].text().strip() if isinstance(items[1], QTableWidgetItem) else "",
+            }
 
     # 从表格加载数据
     def append_data_from_table(self) -> None:
         for row in range(self.table.rowCount()):
-            # 获取当前行所有条目
-            data: list[QTableWidgetItem] = [
-                self.table.item(row, col)
-                for col in range(self.table.columnCount())
-            ]
-
-            # 检查数据合法性
-            if not isinstance(data[0], QTableWidgetItem) or data[0].text().strip() == "":
-                continue
-
-            # 添加数据
-            if self.type == __class__.Type.GLOSSARY:
-                self.data.append(
-                    {
-                        "src": data[0].text().strip(),
-                        "dst": data[1].text().strip() if isinstance(data[1], QTableWidgetItem) else "",
-                        "info": data[2].text().strip() if isinstance(data[2], QTableWidgetItem) else "",
-                    }
-                )
-            elif self.type == __class__.Type.REPLACEMENT:
-                self.data.append(
-                    {
-                        "src": data[0].text().strip(),
-                        "dst": data[1].text().strip() if isinstance(data[1], QTableWidgetItem) else "",
-                        "regex": data[2].text().strip() == "✅" if isinstance(data[2], QTableWidgetItem) else False,
-                    }
-                )
-            elif self.type == __class__.Type.TEXT_PRESERVE:
-                self.data.append(
-                    {
-                        "src": data[0].text().strip(),
-                        "info": data[1].text().strip() if isinstance(data[1], QTableWidgetItem) else "",
-                    }
-                )
+            entry: dict[str, str | bool] = self.get_entry_by_row(row)
+            if entry.get("src") != "":
+                self.data.append(entry)
 
     # 从文件加载数据
     def append_data_from_file(self, path: str) -> None:
