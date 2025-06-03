@@ -62,9 +62,8 @@ class EPUB(Base):
                                 # 跳过空标签或嵌套标签
                                 if dom.get_text().strip() == "" or dom.find(EPUB.EPUB_TAGS) != None:
                                     continue
-
-                                # 提取文本 - 保留完整HTML结构
-                                items.append(CacheItem({
+                                # 添加数据
+                                items.append(CacheItem.from_dict({
                                      "src": str(dom),  # 保存整个带标签的元素内容，包括子标签
                                         "dst": str(dom),  # 起始时译文与原文相同
                                         "tag": path,     # 记录标签路径以便后续处理
