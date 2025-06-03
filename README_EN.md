@@ -58,6 +58,7 @@
 - Video Tutorial
   - [How to Translate RPGMV with LinguaGacha and Translator++ (English)](https://www.youtube.com/watch?v=NbpyL2fMgDc)
 - Feature Description
+  - [CLI Mode](https://github.com/neavo/LinguaGacha/wiki/CLIModeEN)
   - [Glossary](https://github.com/neavo/LinguaGacha/wiki/GlossaryEN)　　[Text Preserve](https://github.com/neavo/LinguaGacha/wiki/TextPreserveEN)　　[Text Replacement](https://github.com/neavo/LinguaGacha/wiki/ReplacementEN)
   - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslationEN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizerEN)
   - [Treasure Chest - Batch Correction](https://github.com/neavo/LinguaGacha/wiki/BatchCorrectionEN)　　[Treasure Chest - Partial ReTranslatio](https://github.com/neavo/LinguaGacha/wiki/ReTranslationEN)　　[Treasure Chest - Name-Field Extraction](https://github.com/neavo/LinguaGacha/wiki/NameFieldExtractionEN)
@@ -78,22 +79,13 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
-- 20250522 v0.28.0
-  - OPT - Optimized logic for `Text Preserve` and `Result Check`
-  - OPT - Optimized speed for `Task Pause` and `Task Generation`
-  - OPT - Enhanced interaction details for `Glossary` `Text Preserve` `Text Replacement`:
-    - Optimized deduplication logic
-    - Tables now support in-app search
+- 20250603 v0.29.1
+  - FIX - Continue task feature
 
-- 20250515 v0.27.0
-  - NEW - Open output folder upon task completion
-  - OPT - Optimized some interaction details
-
-- 20250506 v0.26.0
-  - NEW - Expert Mode, which enables a series of advanced features:
-    - Expert Settings
-    - Advanced Log Information
-    - [Custom Text Preservation Rules](https://github.com/neavo/LinguaGacha/wiki/TextPreserveEN)
+- 20250602 v0.29.0
+  - NEW - [CLI Mode](https://github.com/neavo/LinguaGacha/wiki/CLIModeEN)
+  - OPT - More accurate request timeout control
+  - OPT - Print failed API keys during interface testing
 
 ## Support 😥
 - Runtime logs are stored in `log` folder

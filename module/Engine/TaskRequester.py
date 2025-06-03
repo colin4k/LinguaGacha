@@ -1,18 +1,18 @@
-import re
 import json
+import re
 import threading
 from functools import lru_cache
 
+import anthropic
 import httpx
 import openai
-import anthropic
 from google import genai
 from google.genai import types
 
 from base.Base import Base
+from base.VersionManager import VersionManager
 from module.Config import Config
 from module.Localizer.Localizer import Localizer
-from module.VersionManager import VersionManager
 
 class TaskRequester(Base):
 
@@ -25,8 +25,12 @@ class TaskRequester(Base):
     # gemini-2.5-flash
     RE_GEMINI_2_5_FLASH: re.Pattern = re.compile(r"gemini-2\.5-flash", flags = re.IGNORECASE)
 
-    # claude-3-7-sonnet
-    RE_CLAUDE_3_7_SONNET: re.Pattern = re.compile(r"claude-3-7-sonnet", flags = re.IGNORECASE)
+    # Claude
+    RE_CLAUDE: tuple[re.Pattern] = (
+        re.compile(r"claude-3-7-sonnet", flags = re.IGNORECASE),
+        re.compile(r"claude-opus-4-0", flags = re.IGNORECASE),
+        re.compile(r"claude-sonnet-4-0", flags = re.IGNORECASE),
+    )
 
     # o1 o3-mini o4-mini-20240406
     RE_O_SERIES: re.Pattern = re.compile(r"o\d$|o\d-", flags = re.IGNORECASE)
@@ -53,48 +57,86 @@ class TaskRequester(Base):
 
     @classmethod
     def get_key(cls, keys: list[str]) -> str:
-        if len(keys) == 1:
-            return keys[0]
+        key: str = ""
+
+        if len(keys) == 0:
+            key = "no_key_required"
+        elif len(keys) == 1:
+            key = keys[0]
         elif cls.API_KEY_INDEX >= len(keys) - 1:
+            key = keys[0]
             cls.API_KEY_INDEX = 0
-            return keys[0]
         else:
+            key = keys[cls.API_KEY_INDEX]
             cls.API_KEY_INDEX = cls.API_KEY_INDEX + 1
-            return keys[cls.API_KEY_INDEX]
+
+        return key
 
     # 获取客户端
     @classmethod
     @lru_cache(maxsize = None)
     def get_client(cls, url: str, key: str, format: Base.APIFormat, timeout: int) -> openai.OpenAI | genai.Client | anthropic.Anthropic:
+        # connect (连接超时):
+        #   建议值: 5.0 到 10.0 秒。
+        #   解释: 建立到 LLM API 服务器的 TCP 连接。通常这个过程很快，但网络波动时可能需要更长时间。设置过短可能导致在网络轻微抖动时连接失败。
+        # read (读取超时):
+        #   建议值: 非常依赖具体场景。
+        #   对于快速响应的简单任务（如分类、简单问答）：10.0 到 30.0 秒。
+        #   对于中等复杂任务或中等长度输出：30.0 到 90.0 秒。
+        #   对于复杂任务或长文本生成（如 GPT-4 生成大段代码或文章）：60.0 到 180.0 秒，甚至更长。
+        #   解释: 这是从发送完请求到接收完整个响应体的最大时间。这是 LLM 请求中最容易超时的部分。你需要根据你的模型、提示和期望输出来估算一个合理的上限。强烈建议监控你的P95/P99响应时间来调整这个值。
+        # write (写入超时):
+        #   建议值: 5.0 到 10.0 秒。
+        #   解释: 发送请求体（包含你的 prompt）到服务器的时间。除非你的 prompt 非常巨大（例如，包含超长上下文），否则这个过程通常很快。
+        # pool (从连接池获取连接超时):
+        #   建议值: 5.0 到 10.0 秒 (如果并发量高，可以适当增加)。
+        #   解释: 如果你使用 httpx.Client 并且并发发起大量请求，可能会耗尽连接池中的连接。此参数定义了等待可用连接的最长时间。
         if format == Base.APIFormat.SAKURALLM:
             return openai.OpenAI(
                 base_url = url,
                 api_key = key,
-                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                timeout = httpx.Timeout(
+                    read = timeout,
+                    pool = 8.00,
+                    write = 8.00,
+                    connect = 8.00,
+                ),
                 max_retries = 1,
             )
         elif format == Base.APIFormat.GOOGLE:
             # https://github.com/googleapis/python-genai
-            # https://ai.google.dev/gemini-api/docs/libraries
             return genai.Client(
                 api_key = key,
                 http_options = types.HttpOptions(
+                    base_url = url,
                     timeout = timeout * 1000,
-                    api_version = "v1alpha",
+                    headers = {
+                        "User-Agent": f"LinguaGacha/{VersionManager.get().get_version()} (https://github.com/neavo/LinguaGacha)",
+                    },
                 ),
             )
         elif format == Base.APIFormat.ANTHROPIC:
             return anthropic.Anthropic(
                 base_url = url,
                 api_key = key,
-                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                timeout = httpx.Timeout(
+                    read = timeout,
+                    pool = 8.00,
+                    write = 8.00,
+                    connect = 8.00,
+                ),
                 max_retries = 1,
             )
         else:
             return openai.OpenAI(
                 base_url = url,
                 api_key = key,
-                timeout = httpx.Timeout(timeout = timeout, connect = 10.0),
+                timeout = httpx.Timeout(
+                    read = timeout,
+                    pool = 8.00,
+                    write = 8.00,
+                    connect = 8.00,
+                ),
                 max_retries = 1,
             )
 
@@ -147,7 +189,7 @@ class TaskRequester(Base):
             "messages": messages,
             "max_tokens": max(512, self.config.token_threshold),
             "extra_headers": {
-                "User-Agent": f"LinguaGacha/{VersionManager.VERSION} (https://github.com/neavo/LinguaGacha)"
+                "User-Agent": f"LinguaGacha/{VersionManager.get().get_version()} (https://github.com/neavo/LinguaGacha)"
             }
         }
 
@@ -204,7 +246,7 @@ class TaskRequester(Base):
             "messages": messages,
             "max_tokens": max(4 * 1024, self.config.token_threshold),
             "extra_headers": {
-                "User-Agent": f"LinguaGacha/{VersionManager.VERSION} (https://github.com/neavo/LinguaGacha)"
+                "User-Agent": f"LinguaGacha/{VersionManager.get().get_version()} (https://github.com/neavo/LinguaGacha)"
             }
         }
 
@@ -371,7 +413,7 @@ class TaskRequester(Base):
             "messages": messages,
             "max_tokens": max(4 * 1024, self.config.token_threshold),
             "extra_headers": {
-                "User-Agent": f"LinguaGacha/{VersionManager.VERSION} (https://github.com/neavo/LinguaGacha)"
+                "User-Agent": f"LinguaGacha/{VersionManager.get().get_version()} (https://github.com/neavo/LinguaGacha)"
             }
         }
 
@@ -379,8 +421,8 @@ class TaskRequester(Base):
         args.pop("presence_penalty", None)
         args.pop("frequency_penalty", None)
 
-        # 思考模式切换 - Claude 3.7 Sonnet
-        if __class__.RE_CLAUDE_3_7_SONNET.search(self.platform.get("model")) is not None:
+        # 思考模式切换
+        if any(v.search(self.platform.get("model")) is not None for v in __class__.RE_CLAUDE):
             if thinking == True:
                 args["thinking"] = {
                     "type": "enabled",

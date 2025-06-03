@@ -37,7 +37,7 @@ class CacheManager(Base):
         super().__init__()
 
         # 默认值
-        self.project: CacheProject = CacheProject({})
+        self.project: CacheProject = CacheProject()
         self.items: list[CacheItem] = []
 
         # 初始化
@@ -89,7 +89,7 @@ class CacheManager(Base):
         with __class__.LOCK:
             try:
                 with open(path, "w", encoding = "utf-8") as writer:
-                    writer.write(json.dumps([item.get_vars() for item in items], indent = None, ensure_ascii = False))
+                    writer.write(json.dumps([item.asdict() for item in items], indent = None, ensure_ascii = False))
             except Exception as e:
                 self.debug(Localizer.get().log_write_cache_file_fail, e)
 
@@ -98,7 +98,7 @@ class CacheManager(Base):
         with __class__.LOCK:
             try:
                 with open(path, "w", encoding = "utf-8") as writer:
-                    writer.write(json.dumps(project.get_vars(), indent = None, ensure_ascii = False))
+                    writer.write(json.dumps(project.asdict(), indent = None, ensure_ascii = False))
             except Exception as e:
                 self.debug(Localizer.get().log_write_cache_file_fail, e)
 
@@ -113,21 +113,17 @@ class CacheManager(Base):
 
     # 从文件读取数据
     def load_from_file(self, output_path: str) -> None:
+        self.load_items_from_file(output_path)
+        self.load_project_from_file(output_path)
+
+    # 从文件读取项目数据
+    def load_items_from_file(self, output_path: str) -> None:
         path = f"{output_path}/cache/items.json"
         with __class__.LOCK:
             try:
                 if os.path.isfile(path):
                     with open(path, "r", encoding = "utf-8-sig") as reader:
-                        self.items = [CacheItem(item) for item in json.load(reader)]
-            except Exception as e:
-                self.debug(Localizer.get().log_read_cache_file_fail, e)
-
-        path = f"{output_path}/cache/project.json"
-        with __class__.LOCK:
-            try:
-                if os.path.isfile(path):
-                    with open(path, "r", encoding = "utf-8-sig") as reader:
-                        self.project = CacheProject(json.load(reader))
+                        self.items = [CacheItem.from_dict(item) for item in json.load(reader)]
             except Exception as e:
                 self.debug(Localizer.get().log_read_cache_file_fail, e)
 
@@ -138,7 +134,7 @@ class CacheManager(Base):
             try:
                 if os.path.isfile(path):
                     with open(path, "r", encoding = "utf-8-sig") as reader:
-                        self.project = CacheProject(json.load(reader))
+                        self.project = CacheProject.from_dict(json.load(reader))
             except Exception as e:
                 self.debug(Localizer.get().log_read_cache_file_fail, e)
 
@@ -164,7 +160,7 @@ class CacheManager(Base):
 
     # 复制缓存数据
     def copy_items(self) -> list[CacheItem]:
-        return [CacheItem(item.get_vars()) for item in self.items]
+        return [CacheItem.from_dict(item.asdict()) for item in self.items]
 
     # 获取缓存数据数量（根据翻译状态）
     def get_item_count_by_status(self, status: int) -> int:

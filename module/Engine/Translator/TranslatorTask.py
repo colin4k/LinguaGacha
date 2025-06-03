@@ -1,33 +1,30 @@
-import time
 import itertools
 import threading
+import time
 from functools import lru_cache
 
+import rich
 from rich import box
 from rich import markup
 from rich.table import Table
-from rich.console import Console
 
 from base.Base import Base
 from base.LogManager import LogManager
-from module.Text.TextHelper import TextHelper
 from module.Cache.CacheItem import CacheItem
 from module.Config import Config
 from module.Engine.Engine import Engine
 from module.Engine.TaskRequester import TaskRequester
-from module.Response.ResponseChecker import ResponseChecker
-from module.Response.ResponseDecoder import ResponseDecoder
 from module.Localizer.Localizer import Localizer
 from module.PromptBuilder import PromptBuilder
+from module.Response.ResponseChecker import ResponseChecker
+from module.Response.ResponseDecoder import ResponseDecoder
+from module.Text.TextHelper import TextHelper
 from module.TextProcessor import TextProcessor
 
 class TranslatorTask(Base):
 
-    # 类变量
-    CONSOLE = Console(highlight = True, tab_size = 4)
-
     # 自动术语表
-    GLOSSARY_SAVE_LOCK = threading.Lock()
+    GLOSSARY_SAVE_LOCK: threading.Lock = threading.Lock()
     GLOSSARY_SAVE_TIME: float = time.time()
     GLOSSARY_SAVE_INTERVAL: int = 15
 
@@ -50,6 +47,10 @@ class TranslatorTask(Base):
 
     # 请求
     def request(self, items: list[CacheItem], processors: list[TextProcessor], precedings: list[CacheItem], local_flag: bool, current_round: int) -> dict[str, str]:
+        # 检测是否需要停止任务
+        if Engine.get().get_status() == Engine.Status.STOPPING:
+            return {}
+
         # 任务开始的时间
         start_time = time.time()
 
@@ -116,7 +117,7 @@ class TranslatorTask(Base):
             console_log.append(Localizer.get().translator_task_response_think + response_think)
         if response_result != "":
             file_log.append(Localizer.get().translator_task_response_result + response_result)
-            console_log.append(Localizer.get().translator_task_response_result + response_result) if LogManager.is_expert_mode() else None
+            console_log.append(Localizer.get().translator_task_response_result + response_result) if LogManager.get().is_expert_mode() else None
 
         # 如果有任何正确的条目，则处理结果
         updated_count = 0
@@ -278,14 +279,16 @@ class TranslatorTask(Base):
 
         # 根据线程数判断是否需要打印表格
         if Engine.get().get_running_task_count() > 32:
-            log_func(
-                Localizer.get().translator_too_many_task + "\n" + message + "\n",
-                file = False,
-                console = True,
+            rich.get_console().print(
+                Localizer.get().translator_too_many_task + "\n" + message + "\n"
             )
         else:
-            console_rows = self.generate_log_rows(srcs, dsts, console_log, console = True)
-            __class__.CONSOLE.print(self.generate_log_table(console_rows, style))
+            rich.get_console().print(
+                self.generate_log_table(
+                    self.generate_log_rows(srcs, dsts, console_log, console = True),
+                    style,
+                )
+            )
 
     # 生成日志行
     def generate_log_rows(self, srcs: list[str], dsts: list[str], extra: list[str], console: bool) -> tuple[list[str], str]:
@@ -333,9 +336,7 @@ class TranslatorTask(Base):
     @classmethod
     @lru_cache(maxsize = None)
     def get_error_text(cls, error: ResponseChecker.Error) -> str:
-        if error == ResponseChecker.Error.UNKNOWN:
-            return Localizer.get().response_checker_unknown
-        elif error == ResponseChecker.Error.FAIL_DATA:
+        if error == ResponseChecker.Error.FAIL_DATA:
             return Localizer.get().response_checker_fail_data
         elif error == ResponseChecker.Error.FAIL_LINE_COUNT:
             return Localizer.get().response_checker_fail_line_count
@@ -352,4 +353,4 @@ class TranslatorTask(Base):
         elif error == ResponseChecker.Error.LINE_ERROR_DEGRADATION:
             return Localizer.get().response_checker_line_error_degradation
         else:
-            return ""
+            return Localizer.get().response_checker_unknown

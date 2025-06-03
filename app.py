@@ -1,7 +1,10 @@
+import argparse
 import ctypes
 import os
+import signal
 import sys
-import traceback
+import time
+from types import TracebackType
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
@@ -11,30 +14,32 @@ from qfluentwidgets import Theme
 from qfluentwidgets import setTheme
 from rich.console import Console
 
+from base.Base import Base
+from base.CLIManager import CLIManager
 from base.LogManager import LogManager
+from base.VersionManager import VersionManager
 from frontend.AppFluentWindow import AppFluentWindow
 from module.Config import Config
 from module.Engine.Engine import Engine
 from module.Localizer.Localizer import Localizer
-from module.VersionManager import VersionManager
 
-# 捕获全局异常
-def excepthook(exc_type, exc_value, exc_traceback) -> None:
-    if issubclass(exc_type, KeyboardInterrupt):
-        # 用户中断，不记录日志
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
+def excepthook(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType) -> None:
+    LogManager.get().error(Localizer.get().log_crash, exc_value)
 
-    # 使用LogHelper记录异常信息
-    LogManager.error(f"{Localizer.get().log_crash}\n{"".join(traceback.format_exception(exc_type, exc_value, exc_traceback)).strip()}")
+    if not isinstance(exc_value, KeyboardInterrupt):
+        print("")
+        for i in range(3):
+            print(f"退出中 … Exiting … {3 - i} …")
+            time.sleep(1)
+
+    os.kill(os.getpid(), signal.SIGTERM)
 
 if __name__ == "__main__":
     # 捕获全局异常
-    sys.excepthook = excepthook
+    sys.excepthook = lambda exc_type, exc_value, exc_traceback: excepthook(exc_type, exc_value, exc_traceback)
 
     # 当运行在 Windows 系统且没有运行在新终端时，禁用快速编辑模式
     if os.name == "nt" and Console().color_system != "truecolor":
-        user32 = ctypes.windll.user32
         kernel32 = ctypes.windll.kernel32
 
         # 获取控制台句柄
@@ -48,7 +53,6 @@ if __name__ == "__main__":
             # 设置新的控制台模式
             kernel32.SetConsoleMode(hStdin, mode)
 
-    # 启用了高 DPI 缩放
     # 1. 全局缩放使能 (Enable High DPI Scaling)
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
     # 2. 适配非整数倍缩放 (Adapt non-integer scaling)
@@ -75,15 +79,15 @@ if __name__ == "__main__":
     Localizer.set_app_language(config.app_language)
 
     # 打印日志
-    LogManager.info(f"LinguaGacha {version}")
-    LogManager.info(Localizer.get().log_expert_mode) if LogManager.is_expert_mode() else None
+    LogManager.get().info(f"LinguaGacha {version}")
+    LogManager.get().info(Localizer.get().log_expert_mode) if LogManager.get().is_expert_mode() else None
 
     # 网络代理
     if config.proxy_enable == False or config.proxy_url == "":
         os.environ.pop("http_proxy", None)
         os.environ.pop("https_proxy", None)
     else:
-        LogManager.info(Localizer.get().log_proxy)
+        LogManager.get().info(Localizer.get().log_proxy)
         os.environ["http_proxy"] = config.proxy_url
         os.environ["https_proxy"] = config.proxy_url
 
@@ -114,14 +118,15 @@ if __name__ == "__main__":
     app.setFont(font)
 
     # 启动任务引擎
-    Engine().get().run()
+    Engine.get().run()
 
     # 创建版本管理器
-    version_manager = VersionManager(version)
+    VersionManager.get().set_version(version)
 
-    # 创建全局窗口对象
-    app_fluent_window = AppFluentWindow()
-    app_fluent_window.show()
+    # 处理启动参数
+    if CLIManager.get().run() == False:
+        app_fluent_window = AppFluentWindow()
+        app_fluent_window.show()
 
     # 进入事件循环，等待用户操作
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
