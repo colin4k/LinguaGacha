@@ -14,3 +14,8 @@ rich
 httpx
 json-repair
 charset-normalizer
+
+# API服务
+fastapi
+uvicorn[standard]
+pydantic
