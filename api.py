@@ -41,7 +41,7 @@ app.add_middleware(
 
 # 全局变量
 engine = Engine()
-cache_manager = CacheManager()
+cache_manager = CacheManager(service=False)
 translation_tasks = {}
 config = Config()
 
@@ -474,7 +474,7 @@ def continue_translation(background_tasks: BackgroundTasks):
         # 检查是否有保存的翻译项目
         config = load_config()
         output_folder = config.get("output_folder", "./output")
-        cache_manager_temp = CacheManager()
+        cache_manager_temp = CacheManager(service=False)
 
         if not cache_manager_temp.load_project_from_file(output_folder):
             raise HTTPException(status_code=404, detail="没有找到可继续的翻译项目")
