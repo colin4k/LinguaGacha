@@ -1,0 +1,10 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+supabase==2.0.3
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+aiofiles==23.2.1
+asyncio-mqtt==0.16.1
+pydantic==2.5.0
+python-dotenv==1.0.0
