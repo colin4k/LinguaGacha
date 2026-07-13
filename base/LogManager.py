@@ -121,6 +121,15 @@ class LogManager:
 
         return cls.__instance__
 
+    def is_expert_mode(self) -> bool:
+        """返回是否处于专家模式（从 Config 读取，缓存到实例）。"""
+        if getattr(self, "_expert_mode", None) is None:
+            from module.Config import Config
+
+            self._expert_mode = Config().load().expert_mode
+
+        return bool(self._expert_mode)
+
     def print(
         self,
         msg: str,
