@@ -360,7 +360,7 @@ class TaskRequester(Base):
             client: openai.OpenAI,
             request_args: dict[str, Any],
         ) -> Iterator[StreamSession]:
-            with client.beta.chat.completions.stream(**request_args) as stream:
+            with client.chat.completions.stream(**request_args) as stream:
                 iterator: Any = iter(stream) if hasattr(stream, "__iter__") else stream
 
                 def close() -> Any:

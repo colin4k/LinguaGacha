@@ -3,10 +3,12 @@ name = "linguagacha"
 version = "0.0.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "==3.14.*"
+requires-python = ">=3.12"
 dependencies = [
     # System
     "openai",
+    # compression.zstd is Python 3.14+ stdlib; fallback for 3.12/3.13
+    "zstandard; python_version < '3.14'",
     "anthropic",
     "google-genai",
     "httpx",
