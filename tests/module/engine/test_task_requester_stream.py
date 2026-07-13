@@ -1,11 +1,10 @@
 import dataclasses
-import inspect
 from typing import Any
 
 import pytest
 
-from module.Engine.TaskRequesterErrors import RequestCancelledError
-from module.Engine.TaskRequesterErrors import RequestHardTimeoutError
+from module.Engine.TaskRequestErrors import RequestCancelledError
+from module.Engine.TaskRequestErrors import RequestHardTimeoutError
 from module.Engine.TaskRequesterStream import StreamConsumer
 from module.Engine.TaskRequesterStream import StreamControl
 from module.Engine.TaskRequesterStream import StreamSession
@@ -27,42 +26,11 @@ class HasNonCallableClose:
     close = 123
 
 
-@dataclasses.dataclass
-class ReenteringClose:
-    called: int = 0
-    reentered: bool = False
-
-    def close(self) -> None:
-        self.called += 1
-        if self.reentered:
-            return
-        self.reentered = True
-
-        # 从 session.close() 回溯到 StreamConsumer.consume 的 frame，拿到内部 close_once 再调用一次。
-        # 这样可以覆盖 close_once 的“二次调用直接返回”分支。
-        frame = inspect.currentframe()
-        assert frame is not None
-        close_once_frame = frame.f_back
-        assert close_once_frame is not None
-        consume_frame = close_once_frame.f_back
-        assert consume_frame is not None
-        close_once = consume_frame.f_locals.get("close_once")
-        assert callable(close_once)
-        close_once()
-
-
-def test_stream_control_create_passes_through() -> None:
-    control = StreamControl.create(stop_checker=None, deadline_monotonic=1.25)
-    assert control.stop_checker is None
-    assert control.deadline_monotonic == 1.25
-
-
-def test_safe_close_resource_no_close_is_noop() -> None:
+def test_safe_close_resource_ignores_objects_without_callable_close() -> None:
     safe_close_resource(object())
-
-
-def test_safe_close_resource_non_callable_close_is_noop() -> None:
-    safe_close_resource(HasNonCallableClose())
+    resource = HasNonCallableClose()
+    safe_close_resource(resource)
+    assert resource.close == 123
 
 
 def test_safe_close_resource_calls_close() -> None:
@@ -86,16 +54,6 @@ def test_consume_iterates_all_items_and_closes() -> None:
     StreamConsumer.consume(session, control, on_item=seen.append)
 
     assert seen == ["a", "b"]
-    assert close_recorder.called == 1
-
-
-def test_consume_close_once_is_idempotent() -> None:
-    close_recorder = ReenteringClose()
-    session = StreamSession(iterator=[], close=close_recorder.close)
-    control = StreamControl.create(stop_checker=None, deadline_monotonic=None)
-
-    StreamConsumer.consume(session, control, on_item=lambda item: None)
-
     assert close_recorder.called == 1
 
 

@@ -5,12 +5,12 @@ from typing import Optional
 
 from base.Base import Base
 from base.LogManager import LogManager
-from model.Item import Item
-from model.Project import Project
+from module.Data.Core.Item import Item
+from module.Data.Core.Project import Project
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.File.ASS import ASS
-from module.File.EPUB import EPUB
+from module.File.EPUB.EPUB import EPUB
 from module.File.KVJSON import KVJSON
 from module.File.MD import MD
 from module.File.MESSAGEJSON import MESSAGEJSON
@@ -165,19 +165,6 @@ class FileManager(Base):
                 items.extend(
                     MESSAGEJSON(self.config).read_from_stream(content, rel_path)
                 )
-
-        return items
-
-    # 从资产读取
-    def read_from_assets(self, assets: dict[str, bytes]) -> list[Item]:
-        """从 Assets 字典读取并解析翻译条目
-
-        Args:
-            assets: 相对路径 -> 字节数据的字典
-        """
-        items: list[Item] = []
-        for rel_path, content in assets.items():
-            items.extend(self.parse_asset(rel_path, content))
 
         return items
 

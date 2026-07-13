@@ -1,126 +1,62 @@
-# LinguaGacha Agent Guidelines
-本文档用于约束在本仓库工作的 Agent 的行为、命令与代码风格，**必须严格遵循**
+# LinguaGacha Agent 协作指南
 
-## 1. 项目背景
-- **简介**: 基于 LLM 的次世代视觉小说、电子书及字幕翻译工具
-- **技术栈**: Python 3.14, PySide6, PySide6-Fluent-Widgets
+本文件是 Agent 入口，只保留协作、编码和交付时必须立即遵守的硬约束
 
-## 2. 核心原则
-1. **第一性原理**: 先搞清楚数据流/不变量/模块边界，再实际手动实现任务目标
-2. **KISS & YAGNI**: 保持简单，拒绝过度设计，除非必要，避免防御性编程
-3. **正交数据流**: 每类数据必须有唯一来源与唯一写入入口，跨模块只通过显式接口/事件交换，**禁止跨线程/跨模块传递可变对象的引用**
+## 1. 阅读入口与唯一归宿
 
-## 3. 环境与指令
-- **依赖安装**：`uv sync -U --extra test`
-- **启动应用**: `uv run app.py`
-- **代码检查**: `uv run ruff format <file_path>` `uv run ruff check --fix <file_path>`
+- 收到任务后先按 [`docs/WORKFLOW.md`](docs/WORKFLOW.md) 选择阅读路径
+- 除非任务只涉及纯文档自检，否则先读 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
-## 4. 代码规范
-### 4.1 注释
-使用 `# …` 形式的注释，所有类、方法以及关键逻辑 **必须写注释解释为什么**
+| 你要判断的问题 | 唯一归宿 |
+| --- | --- |
+| 系统分层、跨层边界、模块关系、阅读地图 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| HTTP / SSE / bootstrap / topic / 错误码 / mutation 契约 | [`docs/API.md`](docs/API.md) |
+| Electron / preload / renderer / `ProjectStore` / 导航与样式边界 | [`docs/FRONTEND.md`](docs/FRONTEND.md) |
+| Core 数据域、状态拥有者、唯一写入口、SQL 落点 | [`docs/DATA.md`](docs/DATA.md) |
+| 任务起手式、验证矩阵、文档同步、交付自检 | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) |
+| 产品语境与设计权威 | [`PRODUCT.md`](PRODUCT.md) -> [`DESIGN.md`](DESIGN.md) |
 
-### 4.2 控制流
-使用显式的 `if-else` 结构以保持逻辑清晰易读，当选择枝嵌套时则 `elif` 拉平分支结构
+- 长期文档只记录未来维护必须知道、且不能轻易从代码表面得出的当前有效事实
+- 适合专题文档的规则必须迁到唯一归宿，不要在 `AGENTS.md` 里扩写专题正文
 
-### 4.3 命名规范
-- **通用**: 遵循现有文件风格，默认 `snake_case`
-- **禁止首位下划线**: 不要用 `_get_data`、`_internal_method`、`_data`
-- **类**: `PascalCase`（如 `AppFluentWindow`）
-- **常量**: `UPPER_SNAKE_CASE`（如 `Base.Event.PROJECT_LOADED`）
-- **禁止魔术值**: 用常量或枚举（如 `StrEnum`）代替字符串/数字
+## 2. 仓库级硬约束
 
-### 4.4 类型提示
-- **强制**: 所有函数必须标注参数/返回值类型，类/实例属性与 `@dataclass` 字段必须标注类型
-- **局部变量**: 在类型不明显或能明显提升可读性时标注
-- **第三方/动态类型**: 仅当第三方库确实缺少类型信息时，才允许用 `Any` / `cast()` / `Protocol` 兜底
-- **现代语法**: 优先 `A | None`、`list[str]`，少用 `Optional[A]`、`List[str]`
-- **数据载体**: 优先用 `dataclasses`，跨线程传递用 `@dataclass(frozen=True)`
+- LinguaGacha 是“无头 Core + Electron 桌面前端”的双进程工程
+- `api/` 是 Core 对外暴露的唯一 HTTP / SSE 协议边界，HTTP / SSE 协议变化必须同步 [`docs/API.md`](docs/API.md)
+- 渲染层只通过 `window.desktopApp` 接入桌面宿主，再通过 `frontend/src/renderer/app/desktop/desktop-api.ts` 访问 Core API
+- 前端禁止绕过 preload 直连 Node / Electron，禁止直接导入 Python 模块
+- 项目运行态主路径固定为 `/api/project/bootstrap/stream` 与 `/api/events/stream`
+- 页面消费 bootstrap + `project.patch`，不是整页快照轮询
+- 同一业务语义只允许一个权威来源与一个写入口，跨线程、跨模块、跨前后端只传 `id`、值对象或不可变快照，禁止共享可变对象引用
+- 新增状态前先判断它属于 `ProjectSession`、领域 service、`DataManager`、`ProjectStore`，还是页面本地状态
+- SQL 只允许落在 `module/Data/Storage/LGDatabase.py`，API 层不得直接操作数据库，不得持有 `ProjectSession`
+- 前端职责、导航、组件、样式与文案归属以 [`docs/FRONTEND.md`](docs/FRONTEND.md) 为唯一权威
 
-### 4.5 错误处理与日志
-- **日志接口**: 统一使用 `LogManager.get().debug/info/warning/error(msg, e)` 记录日志
-- **记录异常**: 需记录异常时，必须将 `e` 传入日志方法以自动提取堆栈；禁止手动 `traceback.format_exc()`
-- **静默忽略**: 仅对"预期且无害"的情况允许 `except: pass`（不记录日志），但必须注释说明原因
-- **致命异常**: 不可恢复的异常无需捕获，直接冒泡由顶层机制统一记录堆栈并退出
-- **级别选择**: `error` 用于影响功能的错误；`warning` 用于可恢复/降级场景；`info` 用于正常流程
-- **异常链**: 需要包装语义时用 `raise … from e` 保留原始堆栈
+## 3. 编码硬约束
 
-### 4.6 前端开发
-- **UI 库**: 尽可能使用 `qfluentwidgets` 组件
-- **主题适配**: 必须支持亮/暗主题，避免硬编码颜色
-- **多线程**: UI 耗时操作必须放在 `threading.Thread`
-- **线程与 UI**: 后台线程不要直接操作 UI，通过事件总线回到 UI 层刷新
-- **组件通信**: 组件间通信必须使用事件总线（`Base.emit` / `Base.subscribe`）
-- **资源管理**: 图标优先使用 `base/BaseIcon.py`，其他美术资源放 `resource/` 并通过配置或相对路径引用
+通用：
+- 新增命名必须遵循所在语言与目录的既有风格，禁止为了局部方便引入第二套命名体系
+- 类、方法与关键逻辑应编写简明注释，解释“为什么这样约束”，不要复述代码表面行为
+- 魔术值要收口到常量、枚举或冻结数据对象，避免散落在调用点
+- 只有“预期且无害”的场景才允许静默忽略异常，静默忽略异常时必须用注释说明为何可以静默忽略，需要包装语义时必须保留异常链
 
-### 4.7 本地化 `module/Localizer`
-- **禁止硬编码**: 所有用户可见的界面文本（Toast/Dialog/界面文案）必须在 `Localizer**.py` 中定义
-- **行数对齐**: 修改时必须保持 ZH、EN 文件行数一致
-- **动态获取**: 使用 `Localizer.get().your_variable_name`
-- **优先复用**: 优先复用全局通用文本或相近语义的文本
+Python：
+- Python 变量与函数用 `snake_case`，类用 `PascalCase`，常量用 `UPPER_SNAKE_CASE`，命名禁止首位下划线
+- 函数、类属性、实例属性与 `@dataclass` 字段必须显式标注类型，优先使用 `A | None`、`list[str]` 等现代写法
+- 数据载体优先使用 `dataclasses`，跨线程或跨边界传递的数据优先使用 `@dataclass(frozen=True)`
+- Python 模块对外只暴露类，常量与枚举优先设计为类属性
+- 使用 `LogManager.get().debug/info/warning/error(msg, e)` 记录日志，记录异常时必须把 `e` 传入日志接口，使用 `raise ... from e` 保留异常链
 
-### 4.8 正交数据流
-- **单一来源**: 同一业务语义的数据只允许一个权威来源
-- **单一写入**: 状态变更只能发生在负责该数据的模块内，调用方只能通过公开 API/事件请求变更
-- **跨模块载荷**: 事件/回调只传 `id` 或不可变快照，禁止传递可变对象引用
+TypeScript / React / CSS：
+- TypeScript 代码优先保持显式类型，只有第三方类型确实缺失时才局部使用 `any` 兜底
+- React Hook 必须维护真实依赖数组，禁止用 eslint 禁用注释掩盖 React Hook 依赖问题
+- 渲染层视觉尺寸字面量优先使用 `px`，`line-height` 使用无单位数值，`letter-spacing` 仅允许 `em`，`clamp()` 仅允许 `px + vw + px` 组合
 
-### 4.9 模块级符号
-- 模块对外只暴露"类"，常量/枚举等应设计为类属性
+## 4. 交付硬约束
 
-### 4.10 标准库优先
-- 优先使用标准库内置方法，仅在标准库无法满足业务需求时允许自行实现或使用第三方库
-
-## 5. 核心模块说明
-### 5.1 事件系统 `base/Base.py`
-应用通过 `EventManager` 实现组件解耦：
-```python
-# 发送事件
-self.emit(Base.Event.TRANSLATION_DONE, {"result": "success"})
-# 订阅事件
-self.subscribe(Base.Event.PROJECT_LOADED, self.on_project_loaded)
-```
-
-### 5.2 存储系统 `module/Data`
-- **DataManager**: 数据单例入口，负责 `load_project` / `unload_project` / `open_db` / `close_db`
-- **ProjectSession**: 会话状态的单一来源，禁止跨模块共享可变对象引用
-- **LGDatabase**: `.lg` 的 SQLite 访问类（schema + SQL + 序列化）
-- **批量写入**: 统一走 `DataManager.update_batch(…)`
-
-### 5.3 文件处理 `module/File`
-- **FileManager**: 统一的文件读写入口
-
-### 5.4 配置系统 `module/Config.py`
-- 应用配置的单一来源，通过 `Config.get()` 获取
-
-## 6. 项目结构
-```
-app.py              # 应用入口
-base/               # 核心基类、事件、日志管理
-  Base.py           # 事件枚举、状态枚举、基类方法
-  EventManager.py   # 事件总线实现
-  LogManager.py     # 日志管理
-frontend/           # UI 页面实现
-  AppFluentWindow.py
-  Translation/      # 翻译相关页面
-  Setting/          # 设置相关页面
-module/             # 业务模块
-  Config.py         # 配置管理
-  Data/             # 数据存储
-  Engine/           # 翻译引擎
-  File/             # 文件处理
-  Localizer/        # 多语言
-tests/              # 自动化测试
-widget/             # 自定义控件
-resource/           # 静态资源
-  preset/           # 内置翻译提示词、术语表等预设
-```
-
-## 7. 工作流程
-1. **理解需求**: 定位相关逻辑或 UI 页面
-2. **分析流向**: 查看继承关系、事件监听，理解数据流向和业务逻辑
-3. **实施变更**: 按计划逐步完成任务，每完成一个步骤立即更新任务进度状态
-4. **代码审查**: 完成变更后，审视代码差异 (Diff)，检查逻辑正确性与潜在隐患
-5. **测试验证**: 运行 `uv run pytest` 验证自动化测试，GUI 逻辑列出最小手动测试路径
-6. **格式与检查**（仅对有业务变更的文件）：
-   - 使用 Ruff 检查和格式化代码
-   - 检查与修正函数、变量的命名规范
-   - 清理冗余的空行、代码、注释、本地化字段等
+- 改代码前先确认状态拥有者、唯一写入口和事件回流路径，不能只按目录名推断
+- 改动若会让阅读路径、职责边界、协议语义或设计语义失真，必须在同一任务内同步修正文档
+- 删除或迁移遗留文档时，必须同步更新脚本报错、README、技能提示和测试断言里的文档入口，不能让工具链继续指向已迁空的目录级 `SPEC.md`
+- 完成后必须回看 diff，确认命名、注释、实现边界与文档边界仍然一致
+- 验证按 [`docs/WORKFLOW.md`](docs/WORKFLOW.md) 的矩阵执行，若未执行、执行失败或只完成部分验证，交付时必须说明原因与影响范围
+- 若任务涉及前端视觉改动，交付时必须说明是否依照 [`DESIGN.md`](DESIGN.md) 完成核对

@@ -6,20 +6,14 @@ import openpyxl.styles
 from openpyxl.worksheet.worksheet import Worksheet
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
-from module.Data.SpreadsheetUtil import SpreadsheetUtil
+from module.Utils.SpreadsheetTool import SpreadsheetTool
 
 
 class WOLFXLSX(Base):
     FILL_COLOR_WHITELIST: tuple = (9,)  # 白色
-
-    FILL_COLOR_BLACKLIST: tuple = (
-        44,  # 蓝色
-        47,  # 土黄
-        55,  # 灰色
-    )
 
     COL_SRC_TEXT = 6
     COL_DST_TEXT = 7
@@ -74,16 +68,16 @@ class WOLFXLSX(Base):
             dst_val = sheet.cell(row=row, column=self.COL_DST_TEXT).value
             dst: str = str(dst_val) if dst_val is not None else ""
 
-            status = Base.ProjectStatus.NONE
+            status = Base.ItemStatus.NONE
 
             if (
                 src == ""
                 or self.get_fg_color_index(sheet, row, self.COL_SRC_TEXT)
                 not in self.FILL_COLOR_WHITELIST
             ):
-                status = Base.ProjectStatus.EXCLUDED
+                status = Base.ItemStatus.EXCLUDED
             elif dst != "" and src != dst:
-                status = Base.ProjectStatus.PROCESSED_IN_PAST
+                status = Base.ItemStatus.PROCESSED
 
             items.append(
                 Item.from_dict(
@@ -151,10 +145,10 @@ class WOLFXLSX(Base):
             # 将数据写入工作表
             for item in sorted_items:
                 row: int = item.get_row()
-                SpreadsheetUtil.set_cell_value(
+                SpreadsheetTool.set_cell_value(
                     sheet, row=row, column=self.COL_SRC_TEXT, value=item.get_src()
                 )
-                SpreadsheetUtil.set_cell_value(
+                SpreadsheetTool.set_cell_value(
                     sheet, row=row, column=self.COL_DST_TEXT, value=item.get_dst()
                 )
 

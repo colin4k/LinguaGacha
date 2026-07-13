@@ -1,7 +1,7 @@
 import os
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.File.TRANS.KAG import KAG
@@ -9,7 +9,6 @@ from module.File.TRANS.NONE import NONE
 from module.File.TRANS.RENPY import RENPY
 from module.File.TRANS.RPGMAKER import RPGMAKER
 from module.File.TRANS.WOLF import WOLF
-from module.Utils.GapTool import GapTool
 from module.Utils.JSONTool import JSONTool
 
 
@@ -72,7 +71,6 @@ class TRANS(Base):
         if not isinstance(files_raw, dict):
             return items
 
-        dedup_seen: set[str] = set()
         files: dict[str, dict] = files_raw
         for file_key, entry_raw in files.items():
             if not isinstance(entry_raw, dict):
@@ -95,7 +93,7 @@ class TRANS(Base):
             )
 
             # 以 data 为权威行表，按 row_index 索引读取同位 tags/context/parameters。
-            for row_index in GapTool.iter(range(len(data_list))):
+            for row_index in range(len(data_list)):
                 data_raw = data_list[row_index]
                 data_row: list = data_raw if isinstance(data_raw, list) else []
 
@@ -144,16 +142,6 @@ class TRANS(Base):
                 src, dst, tag_final, status, skip_internal_filter = processor.check(
                     file_key, data_item, tag_item, context_item
                 )
-
-                # 去重：读入阶段流式标记 DUPLICATED，保持现有开关与语义。
-                if (
-                    self.config.deduplication_in_trans
-                    and status == Base.ProjectStatus.NONE
-                ):
-                    if src in dedup_seen:
-                        status = Base.ProjectStatus.DUPLICATED
-                    else:
-                        dedup_seen.add(src)
 
                 items.append(
                     Item.from_dict(
@@ -255,13 +243,6 @@ class TRANS(Base):
                         "extra_field": extra_field,
                     }
                 )
-
-            # 去重回填映射：从 PROCESSED 收集 (src -> dst)
-            translation: dict[str, str] = {}
-            if self.config.deduplication_in_trans:
-                for snap in item_snapshots:
-                    if snap["status"] == Base.ProjectStatus.PROCESSED:
-                        translation.setdefault(snap["src"], snap["dst"])
 
             # Patch Writer：优先使用 trans_ref 定位，仅做最小补丁更新。
             patch_targets: list[tuple[dict, str, int]] = []
@@ -420,15 +401,8 @@ class TRANS(Base):
                         parameters_field[row_index] = new_parameter
 
                     # 仅补丁更新译文列，保留 data[row] 其他列。
-                    if status == Base.ProjectStatus.PROCESSED:
+                    if status == Base.ItemStatus.PROCESSED:
                         dst_to_write = snap["dst"]
-                    elif (
-                        status == Base.ProjectStatus.DUPLICATED
-                        and self.config.deduplication_in_trans
-                    ):
-                        if src not in translation:
-                            continue
-                        dst_to_write = translation[src]
                     else:
                         continue
 
@@ -471,12 +445,6 @@ class TRANS(Base):
                     status = snap["status"]
                     src = snap["src"]
                     dst = snap["dst"]
-                    if (
-                        status == Base.ProjectStatus.DUPLICATED
-                        and self.config.deduplication_in_trans
-                        and src in translation
-                    ):
-                        dst = translation[src]
 
                     row = [
                         "" for _ in range(max(index_original, index_translation) + 1)
@@ -489,11 +457,8 @@ class TRANS(Base):
                     tags_out.append(extra_field.get("tag", []))
                     context_out.append(extra_field.get("context", []))
 
-                    # 当翻译状态为 已排除、过去已翻译 时，直接使用原始参数
-                    if status in (
-                        Base.ProjectStatus.EXCLUDED,
-                        Base.ProjectStatus.PROCESSED_IN_PAST,
-                    ):
+                    # 已排除项不参与分区翻译参数重建，避免改写原始过滤语义。
+                    if status == Base.ItemStatus.EXCLUDED:
                         parameter_raw = extra_field.get("parameter", [])
                         parameters_out.append(
                             [v for v in parameter_raw if isinstance(v, dict)]

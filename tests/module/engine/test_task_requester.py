@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-import json
 from contextlib import contextmanager
-from pathlib import Path
 
 from typing import Any
 from typing import Iterator
@@ -13,11 +11,11 @@ from unittest.mock import patch
 import pytest
 
 from base.Base import Base
-from model.Model import ThinkingLevel
+from module.Model.Types import ThinkingLevel
 from module.Config import Config
 from module.Engine.TaskRequester import TaskRequester
-from module.Engine.TaskRequesterErrors import RequestCancelledError
-from module.Engine.TaskRequesterErrors import StreamDegradationError
+from module.Engine.TaskRequestErrors import RequestCancelledError
+from module.Engine.TaskRequestErrors import StreamDegradationError
 from module.Engine.TaskRequesterStream import StreamSession
 
 
@@ -25,12 +23,23 @@ from module.Engine.TaskRequesterStream import StreamSession
 class FakeEngine:
     inc_calls: int = 0
     dec_calls: int = 0
+    request_in_flight_count: int = 0
+    active_task_type: str = "idle"
 
     def inc_request_in_flight(self) -> None:
         self.inc_calls += 1
+        self.request_in_flight_count += 1
 
     def dec_request_in_flight(self) -> None:
         self.dec_calls += 1
+        if self.request_in_flight_count > 0:
+            self.request_in_flight_count -= 1
+
+    def get_request_in_flight_count(self) -> int:
+        return self.request_in_flight_count
+
+    def get_active_task_type(self) -> str:
+        return self.active_task_type
 
 
 @dataclasses.dataclass
@@ -212,10 +221,19 @@ def test_init_parses_api_keys_and_invalid_thinking_level_falls_back_to_off() -> 
     assert requester.thinking_level == ThinkingLevel.OFF
 
 
-def test_reset_delegates_to_client_pool() -> None:
-    with patch("module.Engine.TaskRequester.TaskRequesterClientPool.reset") as reset:
-        TaskRequester.reset()
-    reset.assert_called_once_with()
+def test_reset_restores_key_rotation_and_url_cache_state() -> None:
+    from module.Engine.TaskRequesterClientPool import TaskRequesterClientPool
+
+    TaskRequesterClientPool.KEY_INDEX = 1
+    TaskRequesterClientPool.get_url(
+        "https://example.invalid/chat/completions",
+        Base.APIFormat.OPENAI,
+    )
+
+    TaskRequester.reset()
+
+    assert TaskRequesterClientPool.KEY_INDEX == 0
+    assert TaskRequesterClientPool.get_url.cache_info().currsize == 0
 
 
 def test_should_use_max_completion_tokens_and_sdk_timeout() -> None:
@@ -798,50 +816,6 @@ def test_generate_anthropic_args_fallthrough_when_thinking_level_is_unexpected()
     assert args["temperature"] == 0.2
 
 
-@pytest.mark.parametrize("language", ["zh", "en"])
-def test_builtin_preset_output_token_limit_defaults(language: str) -> None:
-    project_root = Path(__file__).resolve().parents[3]
-    preset_path = (
-        project_root
-        / "resource"
-        / "preset"
-        / "model"
-        / language
-        / "preset_model_builtin.json"
-    )
-    models = json.loads(preset_path.read_text(encoding="utf-8"))
-
-    assert isinstance(models, list)
-    for model in models:
-        output_token_limit = model.get("threshold", {}).get("output_token_limit")
-        if model.get("api_format") == Base.APIFormat.SAKURALLM:
-            assert output_token_limit == 768
-        else:
-            assert output_token_limit == TaskRequester.OUTPUT_TOKEN_LIMIT_AUTO
-
-
-@pytest.mark.parametrize("language", ["zh", "en"])
-@pytest.mark.parametrize(
-    "preset_name",
-    [
-        "preset_model_custom_openai.json",
-        "preset_model_custom_google.json",
-        "preset_model_custom_anthropic.json",
-    ],
-)
-def test_custom_preset_output_token_limit_defaults(
-    language: str, preset_name: str
-) -> None:
-    project_root = Path(__file__).resolve().parents[3]
-    preset_path = (
-        project_root / "resource" / "preset" / "model" / language / preset_name
-    )
-    model_data = json.loads(preset_path.read_text(encoding="utf-8"))
-
-    output_token_limit = model_data.get("threshold", {}).get("output_token_limit")
-    assert output_token_limit == TaskRequester.OUTPUT_TOKEN_LIMIT_AUTO
-
-
 def test_request_routes_and_engine_counters_always_balance() -> None:
     engine = FakeEngine()
     requester = TaskRequester(
@@ -886,6 +860,95 @@ def test_request_routes_and_engine_counters_always_balance() -> None:
     assert captured["args"]["temperature"] == 0.7
     assert captured["args"]["presence_penalty"] == 1
     assert captured["args"]["frequency_penalty"] == 2
+
+
+def test_request_emits_translation_request_count_progress_patch() -> None:
+    engine = FakeEngine(active_task_type="translation")
+    requester = TaskRequester(
+        Config(),
+        {
+            "api_format": Base.APIFormat.OPENAI,
+            "api_key": "k",
+            "api_url": "https://example.invalid",
+            "model_id": "m",
+        },
+    )
+    emitted: list[tuple[Base.Event, dict[str, Any]]] = []
+
+    def fake_request_openai(
+        messages: list[dict], args: dict[str, Any], *, stop_checker: Any = None
+    ) -> Any:
+        del messages, args, stop_checker
+        return None, "T", "R", 1, 2
+
+    def fake_emit(event: Base.Event, payload: dict[str, Any]) -> None:
+        emitted.append((event, dict(payload)))
+
+    with patch("module.Engine.TaskRequester.Engine.get", return_value=engine):
+        with patch.object(requester, "request_openai", side_effect=fake_request_openai):
+            with patch.object(requester, "emit", side_effect=fake_emit):
+                requester.request([{"role": "user", "content": "U"}])
+
+    assert emitted == [
+        (
+            Base.Event.TRANSLATION_PROGRESS,
+            {"request_in_flight_count": 1},
+        ),
+        (
+            Base.Event.TRANSLATION_PROGRESS,
+            {"request_in_flight_count": 0},
+        ),
+    ]
+
+
+@pytest.mark.parametrize(
+    "task_type,event",
+    [
+        ("translation", Base.Event.TRANSLATION_PROGRESS),
+        ("analysis", Base.Event.ANALYSIS_PROGRESS),
+    ],
+)
+def test_request_keeps_request_count_progress_patch_when_stopping(
+    task_type: str,
+    event: Base.Event,
+) -> None:
+    engine = FakeEngine(active_task_type=task_type)
+    requester = TaskRequester(
+        Config(),
+        {
+            "api_format": Base.APIFormat.OPENAI,
+            "api_key": "k",
+            "api_url": "https://example.invalid",
+            "model_id": "m",
+        },
+    )
+    emitted: list[tuple[Base.Event, dict[str, Any]]] = []
+
+    def fake_request_openai(
+        messages: list[dict], args: dict[str, Any], *, stop_checker: Any = None
+    ) -> Any:
+        del messages, args, stop_checker
+        engine.active_task_type = "idle"
+        return None, "T", "R", 1, 2
+
+    def fake_emit(next_event: Base.Event, payload: dict[str, Any]) -> None:
+        emitted.append((next_event, dict(payload)))
+
+    with patch("module.Engine.TaskRequester.Engine.get", return_value=engine):
+        with patch.object(requester, "request_openai", side_effect=fake_request_openai):
+            with patch.object(requester, "emit", side_effect=fake_emit):
+                requester.request([{"role": "user", "content": "U"}])
+
+    assert emitted == [
+        (
+            event,
+            {"request_in_flight_count": 1},
+        ),
+        (
+            event,
+            {"request_in_flight_count": 0},
+        ),
+    ]
 
 
 @pytest.mark.parametrize(

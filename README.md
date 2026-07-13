@@ -1,3 +1,5 @@
+
+
 <div align=center><img src="https://github.com/user-attachments/assets/cdf990fb-cf03-4370-a402-844f87b2fab8" width="256px;"></div>
 <div align=center><img src="https://img.shields.io/github/v/release/neavo/LinguaGacha"/>   <img src="https://img.shields.io/github/license/neavo/LinguaGacha"/>   <img src="https://img.shields.io/github/stars/neavo/LinguaGacha"/></div>
 <p align='center'>使用 AI 能力一键翻译 小说、游戏、字幕 等文本内容的次世代文本翻译器</p>
@@ -12,7 +14,9 @@
 - 支持 `字幕`、`电子书`、`游戏文本` 等多种文本类型与文本格式
 - 支持 `Claude`、`ChatGPT`、`DeepSeek`、`SakuraLLM` 等各种本地或在线接口
 
-> <img width="1600" height="900" alt="01" src="https://github.com/user-attachments/assets/a7d6c9c8-0a0c-4e62-bd46-c9b40bcdbf85" />
+> <img width="2570" height="1605" alt="01" src="https://github.com/user-attachments/assets/898f6606-9c74-47db-b63e-33d544cfdf15" />
+
+> <img width="2570" height="1605" alt="02" src="https://github.com/user-attachments/assets/7f6d6556-d6b2-4fb1-b509-2d8272814290" />
 
 ## 特别说明 ⚠️
 - 如您在翻译过程中使用了 [LinguaGacha](https://github.com/neavo/LinguaGacha) ，请在作品信息或发布页面的显要位置进行说明！
@@ -28,7 +32,6 @@
 
 ## 配置要求 🖥️
 - 兼容 `OpenAI` `Google` `Anthropic` `SakuraLLM` 标准的 AI 大模型接口
-- 兼容 [KeywordGacha](https://github.com/neavo/KeywordGacha)　`👈👈 使用 AI 能力一键生成术语表的次世代工具`
 
 ## 基本流程 🛸
 - 从 [发布页](https://github.com/neavo/LinguaGacha/releases) 下载应用
@@ -59,7 +62,7 @@
 - 功能说明
   - [命令行模式](https://github.com/neavo/LinguaGacha/wiki/CLIMode)
   - [术语表](https://github.com/neavo/LinguaGacha/wiki/Glossary)　　[文本保护](https://github.com/neavo/LinguaGacha/wiki/TextPreserve)　　[文本替换](https://github.com/neavo/LinguaGacha/wiki/Replacement)　　
-  - [补充翻译](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslation)　　[MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
+  - [强制思考](https://github.com/neavo/LinguaGacha/wiki/ForceThinking)　　[MTool 优化器](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizer)
   - [百宝箱 - 繁简转换](https://github.com/neavo/LinguaGacha/wiki/TSConversion) [百宝箱 - 姓名字段提取](https://github.com/neavo/LinguaGacha/wiki/NameFieldExtraction)
 - 你可以在 [Wiki](https://github.com/neavo/LinguaGacha/wiki) 找到各项功能的更详细介绍，也欢迎在 [讨论区](https://github.com/neavo/LinguaGacha/discussions) 投稿你的使用心得
 
@@ -78,19 +81,32 @@
 - 具体示例可见 [Wiki - 支持的文件格式](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F)，更多格式将持续添加，你也可以在 [ISSUES](https://github.com/neavo/LinguaGacha/issues) 中提出你的需求
 
 ## 近期更新 📅
-- 20260304 v0.59.1
-  - 优化与改进 #451
+- 20260505 v0.99.4
+  - 优化与改进 #545 #546 #549 #550 #551 #552
 
-- 20260303 v0.59.0
-  - 功能 - 质量规则有效性统计
-    - `术语表` `文本替换` `文本保护`
-  - 优化与改进 #453 #457
+- 20260430 v0.99.3
+  - 优化与改进 #535 #536 #539 #541
 
-### 开发指南 🛠️
-- 本项目使用 [**uv**](https://github.com/astral-sh/uv) 管理
-- 安装依赖 `uv sync -U`
-- 运行应用 `uv run app.py`
-- 提交 PR 前请务必执行 `uv run ruff check --fix` 及 `uv run ruff format` 确保代码规范
+- 20260428 v0.99.3
+  - Optimizations and Improvements #535 #536 #539 #541
+
+- 20260428 v0.99.2
+  - 优化与改进 #531 #533
+
+- 20260428 v0.99.1
+  - 优化与改进 #513 #522
+  - 尝试修正 macOS 版本启动报错的问题
+
+- 20260427 v0.99.0
+  - 完全重做了用户界面，更快、更高、更强
+  - 暂时移除了 `CLI` 模式
+
+## 开发指南 🛠️
+- 本项目由 `Python Core` 与 `Electron` 前端组成，推荐准备 [**uv**](https://github.com/astral-sh/uv) 与 [`Node.js 24`](https://nodejs.org/)
+- 安装依赖 `uv sync -U --extra test` `npm --prefix frontend install`
+- 更新依赖 `uv sync -U --extra test` `npm --prefix frontend update`
+- 运行应用 `npm --prefix frontend run dev`
+- 提交 PR 前请根据改动范围执行 [`docs/WORKFLOW.md`](./docs/WORKFLOW.md) 中的对应验证
 - 非开发者请直接在 [发布页](https://github.com/neavo/LinguaGacha/releases) 下载打包版本
 
 ## 问题反馈 😥

@@ -1,15 +1,17 @@
 /.venv
 /uv.lock
-/openspec
 .coverage
 __pycache__
+
+/core
+/core.exe
+/_internal
 
 /*log*
 /*input*
 /*output*
+/*userdata*
 
 *.lg
 /*.xlsx
 /*.json
-/resource/config.json
-/resource/preset/*/user/

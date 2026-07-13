@@ -1,233 +1,188 @@
 from __future__ import annotations
 
-import math
-from typing import Any
-
-import pytest
-
 from base.Base import Base
-from model.Item import Item
-from module.Config import Config
-import module.Engine.TaskScheduler as task_scheduler_module
-from module.Engine.TaskScheduler import TaskContext
+from module.Data.Core.Item import Item
 from module.Engine.TaskScheduler import TaskScheduler
 
 
-def create_item(src: str, status: Base.ProjectStatus = Base.ProjectStatus.NONE) -> Item:
-    item = Item(src=src)
+def create_item(
+    src: str,
+    status: Base.ItemStatus = Base.ItemStatus.NONE,
+    *,
+    file_path: str = "story.txt",
+) -> Item:
+    item = Item(src=src, file_path=file_path)
     item.set_status(status)
     return item
 
 
-def test_generate_initial_contexts_iter_builds_task_contexts(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    first = create_item("first")
-    second = create_item("second")
-    chunks = [([first], [second])]
-    scheduler = TaskScheduler(
-        config=Config(preceding_lines_threshold=2),
-        model={"threshold": {"input_token_limit": 64}},
-        items=[first, second],
+def test_generate_item_chunks_splits_when_file_changes() -> None:
+    items = [
+        create_item("a1", file_path="a.txt"),
+        create_item("a2", file_path="a.txt"),
+        create_item("b1", file_path="b.txt"),
+    ]
+
+    chunks, preceding_chunks = TaskScheduler.generate_item_chunks(
+        items=items,
+        input_token_threshold=1000,
+        preceding_lines_threshold=3,
     )
 
-    monkeypatch.setattr(
-        task_scheduler_module.ChunkGenerator,
-        "generate_item_chunks_iter",
-        staticmethod(lambda **kwargs: iter(chunks)),
+    assert [len(chunk) for chunk in chunks] == [2, 1]
+    assert preceding_chunks[1] == []
+
+
+def test_generate_item_chunks_splits_when_line_limit_exceeded() -> None:
+    items = [
+        create_item("\n".join([f"line-{i}" for i in range(8)])),
+        create_item("line-9"),
+    ]
+
+    chunks, _ = TaskScheduler.generate_item_chunks(
+        items=items,
+        input_token_threshold=16,
+        preceding_lines_threshold=0,
     )
 
-    contexts = list(scheduler.generate_initial_contexts_iter())
-
-    assert len(contexts) == 1
-    assert contexts[0].items == [first]
-    assert contexts[0].precedings == [second]
-    assert contexts[0].token_threshold == 64
-    assert contexts[0].is_initial is True
+    assert [len(chunk) for chunk in chunks] == [1, 1]
 
 
-def test_handle_failed_context_returns_empty_when_no_pending_items() -> None:
-    processed = create_item("done", Base.ProjectStatus.PROCESSED)
-    context = TaskContext(
-        items=[processed],
-        precedings=[],
-        token_threshold=32,
-    )
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [processed]
+def test_generate_item_chunks_skips_non_none_status_items() -> None:
+    items = [
+        create_item("line-1"),
+        create_item("line-2", Base.ItemStatus.PROCESSED),
+        create_item("line-3"),
+    ]
+
+    chunks, _ = TaskScheduler.generate_item_chunks(
+        items=items,
+        input_token_threshold=1000,
+        preceding_lines_threshold=3,
     )
 
-    new_contexts = scheduler.handle_failed_context(context, {})
+    flattened = [item.get_src() for chunk in chunks for item in chunk]
+    assert flattened == ["line-1", "line-3"]
 
-    assert new_contexts == []
 
+def test_generate_item_chunks_returns_empty_when_all_items_are_skipped() -> None:
+    items = [
+        create_item("line-1", Base.ItemStatus.PROCESSED),
+        create_item("line-2", Base.ItemStatus.PROCESSED),
+    ]
 
-def test_handle_failed_context_splits_items_when_threshold_above_one(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    first = create_item("a")
-    second = create_item("b")
-    context = TaskContext(
-        items=[first, second],
-        precedings=[],
-        token_threshold=32,
-        split_count=1,
-        retry_count=0,
-        is_initial=False,
-    )
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [first, second]
+    chunks, preceding_chunks = TaskScheduler.generate_item_chunks(
+        items=items,
+        input_token_threshold=1000,
+        preceding_lines_threshold=2,
     )
 
-    monkeypatch.setattr(
-        task_scheduler_module.ChunkGenerator,
-        "generate_item_chunks",
-        staticmethod(lambda **kwargs: ([[first], [second]], [])),
+    assert chunks == []
+    assert preceding_chunks == []
+
+
+def test_generate_item_chunks_splits_when_token_limit_exceeded() -> None:
+    items = [
+        create_item("first"),
+        create_item("second"),
+    ]
+
+    chunks, _ = TaskScheduler.generate_item_chunks(
+        items=items,
+        input_token_threshold=0,
+        preceding_lines_threshold=2,
     )
 
-    new_contexts = scheduler.handle_failed_context(context, {})
-
-    assert len(new_contexts) == 2
-    assert all(ctx.split_count == 2 for ctx in new_contexts)
-    assert all(ctx.retry_count == 0 for ctx in new_contexts)
-    assert all(ctx.precedings == [] for ctx in new_contexts)
-    assert all(ctx.is_initial is False for ctx in new_contexts)
-    expected_threshold = max(1, math.floor(32 * scheduler.factor))
-    assert all(ctx.token_threshold == expected_threshold for ctx in new_contexts)
+    assert [len(chunk) for chunk in chunks] == [1, 1]
 
 
-def test_handle_failed_context_splits_to_single_items_when_threshold_is_one() -> None:
-    first = create_item("a")
-    second = create_item("b")
-    context = TaskContext(
-        items=[first, second],
-        precedings=[],
-        token_threshold=1,
-        split_count=2,
-    )
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [first, second]
+def test_generate_preceding_chunk_obeys_punctuation_and_threshold() -> None:
+    items = [
+        create_item("first.", file_path="a.txt"),
+        create_item("second.", file_path="a.txt"),
+        create_item("third.", file_path="a.txt"),
+        create_item("target", file_path="a.txt"),
+    ]
+
+    preceding = TaskScheduler.generate_preceding_chunk(
+        items=items,
+        chunk=[items[3]],
+        start=4,
+        skip=0,
+        preceding_lines_threshold=2,
     )
 
-    new_contexts = scheduler.handle_failed_context(context, {})
-
-    assert [ctx.items for ctx in new_contexts] == [[first], [second]]
-    assert all(ctx.token_threshold == 1 for ctx in new_contexts)
-    assert all(ctx.split_count == 3 for ctx in new_contexts)
+    assert [item.get_src() for item in preceding] == ["second.", "third."]
 
 
-def test_handle_failed_context_retries_single_item_until_limit() -> None:
-    item = create_item("single")
-    context = TaskContext(
-        items=[item],
-        precedings=[],
-        token_threshold=16,
-        retry_count=2,
-    )
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
-    )
+def test_generate_preceding_chunk_skips_excluded_and_empty_items() -> None:
+    items = [
+        create_item("skip.", Base.ItemStatus.EXCLUDED, file_path="a.txt"),
+        create_item("   ", file_path="a.txt"),
+        create_item("kept.", file_path="a.txt"),
+        create_item("target", file_path="a.txt"),
+    ]
 
-    new_contexts = scheduler.handle_failed_context(context, {})
-
-    assert len(new_contexts) == 1
-    assert new_contexts[0].items == [item]
-    assert new_contexts[0].retry_count == 3
-    assert new_contexts[0].split_count == context.split_count
-
-
-def test_handle_failed_context_force_accepts_after_retry_limit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    item = create_item("single")
-    context = TaskContext(
-        items=[item],
-        precedings=[],
-        token_threshold=16,
-        retry_count=3,
-    )
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
-    )
-    calls: list[Item] = []
-    monkeypatch.setattr(scheduler, "force_accept", lambda obj: calls.append(obj))
-
-    new_contexts = scheduler.handle_failed_context(context, {})
-
-    assert new_contexts == []
-    assert calls == [item]
-
-
-def test_create_task_injects_split_retry_and_threshold(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured: dict[str, Any] = {}
-
-    class FakeTranslatorTask:
-        def __init__(self, **kwargs: Any) -> None:
-            captured.update(kwargs)
-            self.split_count = -1
-            self.token_threshold = -1
-            self.retry_count = -1
-
-    monkeypatch.setattr(task_scheduler_module, "TranslatorTask", FakeTranslatorTask)
-
-    item = create_item("line")
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
-    )
-    context = TaskContext(
-        items=[item],
-        precedings=[],
-        token_threshold=20,
-        split_count=4,
-        retry_count=2,
-        is_initial=False,
+    preceding = TaskScheduler.generate_preceding_chunk(
+        items=items,
+        chunk=[items[3]],
+        start=4,
+        skip=0,
+        preceding_lines_threshold=2,
     )
 
-    task = scheduler.create_task(context)
-
-    assert captured["items"] == [item]
-    assert captured["precedings"] == []
-    assert captured["is_sub_task"] is True
-    assert task.split_count == 4
-    assert task.token_threshold == 20
-    assert task.retry_count == 2
+    assert [item.get_src() for item in preceding] == ["kept."]
 
 
-def test_force_accept_sets_src_to_dst_and_error_status() -> None:
-    item = create_item("origin")
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
+def test_generate_preceding_chunk_skips_rule_and_language_skipped() -> None:
+    items = [
+        create_item("skip.", Base.ItemStatus.RULE_SKIPPED),
+        create_item("skip.", Base.ItemStatus.LANGUAGE_SKIPPED),
+        create_item("kept."),
+        create_item("target"),
+    ]
+
+    preceding = TaskScheduler.generate_preceding_chunk(
+        items=items,
+        chunk=[items[3]],
+        start=4,
+        skip=0,
+        preceding_lines_threshold=2,
     )
 
-    scheduler.force_accept(item)
-
-    assert item.get_dst() == "origin"
-    assert item.get_status() == Base.ProjectStatus.ERROR
+    assert [item.get_src() for item in preceding] == ["kept."]
 
 
-def test_force_accept_keeps_existing_dst_when_status_is_none() -> None:
-    item = create_item("origin", Base.ProjectStatus.NONE)
-    item.set_dst("translated")
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
+def test_generate_preceding_chunk_stops_when_sentence_has_no_end_punctuation() -> None:
+    items = [
+        create_item("valid."),
+        create_item("no-ending"),
+        create_item("target"),
+    ]
+
+    preceding = TaskScheduler.generate_preceding_chunk(
+        items=items,
+        chunk=[items[2]],
+        start=3,
+        skip=0,
+        preceding_lines_threshold=2,
     )
 
-    scheduler.force_accept(item)
-
-    assert item.get_dst() == "translated"
-    assert item.get_status() == Base.ProjectStatus.ERROR
+    assert preceding == []
 
 
-def test_force_accept_does_not_override_processed_item() -> None:
-    item = create_item("origin", Base.ProjectStatus.PROCESSED)
-    item.set_dst("translated")
-    scheduler = TaskScheduler(
-        Config(), {"threshold": {"input_token_limit": 64}}, [item]
+def test_generate_preceding_chunk_stops_when_file_changes() -> None:
+    items = [
+        create_item("cross-file.", file_path="a.txt"),
+        create_item("target", file_path="b.txt"),
+    ]
+
+    preceding = TaskScheduler.generate_preceding_chunk(
+        items=items,
+        chunk=[items[1]],
+        start=2,
+        skip=0,
+        preceding_lines_threshold=2,
     )
 
-    scheduler.force_accept(item)
-
-    assert item.get_dst() == "translated"
-    assert item.get_status() == Base.ProjectStatus.PROCESSED
+    assert preceding == []

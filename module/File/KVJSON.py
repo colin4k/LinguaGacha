@@ -2,7 +2,7 @@ import os
 
 from base.Base import Base
 from base.BaseLanguage import BaseLanguage
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.Text.TextHelper import TextHelper
@@ -70,7 +70,7 @@ class KVJSON(Base):
                                 "row": len(items),
                                 "file_type": Item.FileType.KVJSON,
                                 "file_path": rel_path,
-                                "status": Base.ProjectStatus.EXCLUDED,
+                                "status": Base.ItemStatus.EXCLUDED,
                             }
                         )
                     )
@@ -83,7 +83,7 @@ class KVJSON(Base):
                                 "row": len(items),
                                 "file_type": Item.FileType.KVJSON,
                                 "file_path": rel_path,
-                                "status": Base.ProjectStatus.PROCESSED_IN_PAST,
+                                "status": Base.ItemStatus.PROCESSED,
                             }
                         )
                     )
@@ -96,7 +96,7 @@ class KVJSON(Base):
                                 "row": len(items),
                                 "file_type": Item.FileType.KVJSON,
                                 "file_path": rel_path,
-                                "status": Base.ProjectStatus.NONE,
+                                "status": Base.ItemStatus.NONE,
                             }
                         )
                     )

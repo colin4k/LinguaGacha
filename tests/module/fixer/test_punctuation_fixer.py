@@ -2,16 +2,28 @@ from base.BaseLanguage import BaseLanguage
 from module.Fixer.PunctuationFixer import PunctuationFixer
 
 
-class TestPunctuationFixer:
-    def test_init_does_not_crash(self) -> None:
-        PunctuationFixer()
+def fix_punctuation(
+    src: str,
+    dst: str,
+    source_language: BaseLanguage.Enum,
+    target_language: BaseLanguage.Enum,
+) -> str:
+    return PunctuationFixer.fix(src, dst, source_language, target_language)
 
-    def test_fix_start_end_align_with_source_quotes(self) -> None:
+
+class TestPunctuationFixer:
+    def test_fix_aligns_corner_quotes_with_source_boundaries(self) -> None:
         src = "「你好」"
         dst = '"你好"'
 
         assert (
-            PunctuationFixer.fix_start_end(src, dst, BaseLanguage.Enum.EN) == "「你好」"
+            fix_punctuation(
+                src,
+                dst,
+                BaseLanguage.Enum.JA,
+                BaseLanguage.Enum.JA,
+            )
+            == "「你好」"
         )
 
     def test_non_cjk_to_cjk_apply_rule_a_only(self) -> None:
@@ -19,7 +31,7 @@ class TestPunctuationFixer:
         dst = "A：B"
 
         assert (
-            PunctuationFixer.fix(
+            fix_punctuation(
                 src,
                 dst,
                 BaseLanguage.Enum.EN,
@@ -33,7 +45,7 @@ class TestPunctuationFixer:
         dst = "A：B"
 
         assert (
-            PunctuationFixer.fix(
+            fix_punctuation(
                 src,
                 dst,
                 BaseLanguage.Enum.EN,
@@ -47,7 +59,7 @@ class TestPunctuationFixer:
         dst = "A:B"
 
         assert (
-            PunctuationFixer.fix(
+            fix_punctuation(
                 src,
                 dst,
                 BaseLanguage.Enum.JA,
@@ -56,20 +68,32 @@ class TestPunctuationFixer:
             == "A：B"
         )
 
-    def test_fix_start_end_align_with_cjk_curly_quotes(self) -> None:
+    def test_cjk_target_normalizes_curly_quotes_to_corner_quotes(self) -> None:
         src = "“你好”"
         dst = '"你好"'
 
         assert (
-            PunctuationFixer.fix_start_end(src, dst, BaseLanguage.Enum.ZH) == "“你好”"
+            fix_punctuation(
+                src,
+                dst,
+                BaseLanguage.Enum.ZH,
+                BaseLanguage.Enum.ZH,
+            )
+            == "「你好」"
         )
 
-    def test_fix_start_end_keep_quotes_when_source_has_no_quote(self) -> None:
+    def test_fix_keep_quotes_when_source_has_no_quote(self) -> None:
         src = "你好"
         dst = '"你好"'
 
         assert (
-            PunctuationFixer.fix_start_end(src, dst, BaseLanguage.Enum.ZH) == '"你好"'
+            fix_punctuation(
+                src,
+                dst,
+                BaseLanguage.Enum.ZH,
+                BaseLanguage.Enum.ZH,
+            )
+            == '"你好"'
         )
 
     def test_cjk_target_force_convert_corner_quotes(self) -> None:
@@ -77,7 +101,7 @@ class TestPunctuationFixer:
         dst = "\u201chello\u201d"
 
         assert (
-            PunctuationFixer.fix(
+            fix_punctuation(
                 src,
                 dst,
                 BaseLanguage.Enum.JA,

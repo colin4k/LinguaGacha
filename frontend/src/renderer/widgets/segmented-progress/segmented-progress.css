@@ -1,0 +1,43 @@
+.segmented-progress {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--muted);
+}
+
+.segmented-progress__segment {
+  height: 100%;
+  flex: 0 0 auto;
+}
+
+.segmented-progress__segment--skipped {
+  background: var(--primary);
+}
+
+.segmented-progress__segment--failed {
+  background: var(--ui-failure);
+}
+
+.segmented-progress__segment--completed {
+  background: var(--ui-success);
+}
+
+.segmented-progress__segment--pending {
+  background: color-mix(in srgb, var(--muted-foreground) 32%, var(--muted) 68%);
+}
+
+.segmented-progress__tooltip {
+  display: grid;
+  gap: 4px;
+  min-width: 128px;
+}
+
+.segmented-progress__tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

@@ -16,9 +16,9 @@
 - Supports various text types and formats such as `Subtitle`, `E-Book`, and `Game Text`
 - Supports both local and online interfaces such as `Claude`, `ChatGPT`, `DeepSeek`, `SakuraLLM`
 
-> <img src="https://github.com/user-attachments/assets/99f7d74e-ab5b-4645-b736-6f665782b4af" style="width: 80%;">
+> <img width="2570" height="1605" alt="01" src="https://github.com/user-attachments/assets/898f6606-9c74-47db-b63e-33d544cfdf15" />
 
-> <img src="https://github.com/user-attachments/assets/c0d7e898-f6fa-432f-a3cd-e231b657c4b5" style="width: 80%;">
+> <img width="2570" height="1605" alt="02" src="https://github.com/user-attachments/assets/7f6d6556-d6b2-4fb1-b509-2d8272814290" />
 
 ## Special Notice ⚠️
 - If you use [LinguaGacha](https://github.com/neavo/LinguaGacha) during translation, please include clear attribution in prominent locations of your work's information or release pages!
@@ -34,7 +34,6 @@
 
 ## System Requirements 🖥️
 - Compatible with AI model interfaces following `OpenAI`, `Google`, `Anthropic`, `SakuraLLM` standards
-- Compatible with [KeywordGacha](https://github.com/neavo/KeywordGacha)　`👈👈 Next-generation tool for AI-powered glossary generation`
 
 ## Basic Workflow 🛸
 - Download application from [Releases page](https://github.com/neavo/LinguaGacha/releases)
@@ -64,7 +63,7 @@
 - Feature Description
   - [CLI Mode](https://github.com/neavo/LinguaGacha/wiki/CLIModeEN)
   - [Glossary](https://github.com/neavo/LinguaGacha/wiki/GlossaryEN)　　[Text Preserve](https://github.com/neavo/LinguaGacha/wiki/TextPreserveEN)　　[Text Replacement](https://github.com/neavo/LinguaGacha/wiki/ReplacementEN)
-  - [Incremental Translation](https://github.com/neavo/LinguaGacha/wiki/IncrementalTranslationEN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizerEN)
+  - [Force Thinking](https://github.com/neavo/LinguaGacha/wiki/ForceThinkingEN)　　[MTool Optimizer](https://github.com/neavo/LinguaGacha/wiki/MToolOptimizerEN)
   - [TS Conversion](https://github.com/neavo/LinguaGacha/wiki/TSConversionEN) [Name-Field Extraction](https://github.com/neavo/LinguaGacha/wiki/NameFieldExtractionEN)
   - You can find more details on each feature in the [Wiki](https://github.com/neavo/LinguaGacha/wiki), and you are welcome to share your experience in the [Discussions](https://github.com/neavo/LinguaGacha/discussions)
 
@@ -83,19 +82,29 @@
 - See [Wiki - Supported Formats](https://github.com/neavo/LinguaGacha/wiki/%E6%94%AF%E6%8C%81%E7%9A%84%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F) for examples. Submit format requests via [ISSUES](https://github.com/neavo/LinguaGacha/issues)
 
 ## Recent Updates 📅
-- 20260304 v0.59.1
-  - Optimizations and Improvements #461
+- 20260505 v0.99.4
+  - Optimizations and Improvements #545 #546 #549 #550 #551 #552
 
-- 20260303 v0.59.0
-  - feat - Quality Rule Effectiveness Statistics
-    - `Glossary` `Text Replacement` `Text Protection`
-  - Optimizations and Improvements #453 #457
+- 20260430 v0.99.3
+  - Optimizations and Improvements #535 #536 #539 #541
 
-### Development Guide 🛠️
-- This project is managed using [**uv**](https://github.com/astral-sh/uv)
-- Install dependencies `uv sync -U`
-- Run application `uv run app.py`
-- Please ensure you run `uv run ruff check --fix` and `uv run ruff format` to maintain code standards before submitting a PR
+- 20260428 v0.99.2
+  - Optimizations and Improvements #531 #533
+
+- 20260428 v0.99.1
+  - Optimizations and Improvements #513 #522
+  - Try to fix startup errors on the macOS version
+
+- 20260427 v0.99.0
+  - Completely redesigned the user interface, faster, higher, stronger
+  - Temporarily removed `CLI` mode
+
+## Development Guide 🛠️
+- This project consists of `Python Core` and an `Electron` frontend. We recommend preparing [**uv**](https://github.com/astral-sh/uv) and [`Node.js 24`](https://nodejs.org/)
+- Install dependencies `uv sync -U --extra test` `npm --prefix frontend install`
+- Update dependencies `uv sync -U --extra test` `npm --prefix frontend update`
+- Run the application `npm --prefix frontend run dev`
+- Before submitting a PR, run the corresponding checks in [`docs/WORKFLOW.md`](./docs/WORKFLOW.md) based on the scope of your changes
 - For non-developers, please download the packaged version directly from the [Releases page](https://github.com/neavo/LinguaGacha/releases)
 
 ## Support 😥

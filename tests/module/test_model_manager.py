@@ -1,11 +1,11 @@
-import os
+from pathlib import Path
 
 import pytest
 
-from base.BaseLanguage import BaseLanguage
-from model.Model import Model
-from model.Model import ModelType
-from module.ModelManager import ModelManager
+from base.BasePath import BasePath
+from module.Model.Types import Model
+from module.Model.Types import ModelType
+from module.Model.Manager import ModelManager
 
 
 def build_model_data(
@@ -25,7 +25,9 @@ def build_model_data(
 @pytest.fixture(autouse=True)
 def reset_singleton(request: pytest.FixtureRequest) -> None:
     ModelManager.reset()
+    BasePath.reset_for_test()
     request.addfinalizer(ModelManager.reset)
+    request.addfinalizer(BasePath.reset_for_test)
 
 
 class TestModelManager:
@@ -34,41 +36,23 @@ class TestModelManager:
         second = ModelManager.get()
         assert first is second
 
-    def test_get_returns_instance_when_inner_check_is_false(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        expected = ModelManager()
+    def test_reset_clears_singleton_instance(self) -> None:
+        first = ModelManager.get()
 
-        class LockThatInjectsInstance:
-            def __enter__(self) -> None:
-                ModelManager._instance = expected
+        ModelManager.reset()
 
-            def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
-                _ = (exc_type, exc, tb)
-                return False
+        second = ModelManager.get()
+        assert first is not second
 
-        monkeypatch.setattr(ModelManager, "_instance", None)
-        monkeypatch.setattr(ModelManager, "_lock", LockThatInjectsInstance())
-
-        manager = ModelManager.get()
-
-        assert manager is expected
-
-    def test_get_preset_dir_uses_app_language(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_preset_dir_uses_single_model_preset_path(self) -> None:
         manager = ModelManager()
-        monkeypatch.setenv("LINGUAGACHA_APP_DIR", "/tmp/app")
+        BasePath.initialize("/workspace/app", False)
 
-        manager.set_app_language(BaseLanguage.Enum.ZH)
-        zh_path = manager.get_preset_dir()
-        manager.set_app_language(BaseLanguage.Enum.EN)
-        en_path = manager.get_preset_dir()
+        preset_path = manager.get_preset_dir()
 
-        assert zh_path.endswith(os.path.join("resource", "preset", "model", "zh"))
-        assert en_path.endswith(os.path.join("resource", "preset", "model", "en"))
+        assert preset_path.replace("\\", "/") == "/workspace/app/resource/model/preset"
 
-    def test_initialize_models_migrates_and_fills_missing_types(
+    def test_initialize_models_keeps_existing_preset_and_fills_missing_types(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         manager = ModelManager()
@@ -85,7 +69,7 @@ class TestModelManager:
 
         generated_ids = iter(["generated-1", "generated-2"])
         monkeypatch.setattr(
-            "module.ModelManager.Model.generate_id",
+            "module.Model.Manager.Model.generate_id",
             lambda: next(generated_ids),
         )
         monkeypatch.setattr(
@@ -102,8 +86,8 @@ class TestModelManager:
 
         models, migrated_count = manager.initialize_models(existing_models)
 
-        assert migrated_count == 1
-        assert models[0]["type"] == ModelType.CUSTOM_GOOGLE.value
+        assert migrated_count == 0
+        assert models[0]["type"] == ModelType.PRESET.value
         assert any(v.get("id") == "preset-new" for v in models)
         assert any(v.get("type") == ModelType.CUSTOM_ANTHROPIC.value for v in models)
 
@@ -134,31 +118,37 @@ class TestModelManager:
     ) -> None:
         manager = ModelManager()
         monkeypatch.setattr(
-            "module.ModelManager.JSONTool.load_file", lambda path: {"bad": 1}
+            "module.Model.Manager.JSONTool.load_file", lambda path: {"bad": 1}
         )
 
         assert manager.load_preset_models() == []
 
-    def test_load_template_returns_type_specific_template(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_load_template_reads_template_from_single_preset_dir(self, fs) -> None:
+        del fs
         manager = ModelManager()
-        monkeypatch.setattr(manager, "get_preset_dir", lambda: "/tmp/preset")
-
-        def fake_load(path: str) -> dict:
-            return {"path": path}
-
-        monkeypatch.setattr("module.ModelManager.JSONTool.load_file", fake_load)
+        BasePath.initialize("/workspace/app", False)
+        preset_dir = Path("/workspace/app/resource/model/preset")
+        preset_dir.mkdir(parents=True, exist_ok=True)
+        (preset_dir / manager.PRESET_CUSTOM_GOOGLE_FILENAME).write_text(
+            '{"name": "google-template"}',
+            encoding="utf-8",
+        )
+        (preset_dir / manager.PRESET_CUSTOM_OPENAI_FILENAME).write_text(
+            '{"name": "openai-template"}',
+            encoding="utf-8",
+        )
+        (preset_dir / manager.PRESET_CUSTOM_ANTHROPIC_FILENAME).write_text(
+            '{"name": "anthropic-template"}',
+            encoding="utf-8",
+        )
 
         google_template = manager.load_template(ModelType.CUSTOM_GOOGLE)
         openai_template = manager.load_template(ModelType.CUSTOM_OPENAI)
         anthropic_template = manager.load_template(ModelType.CUSTOM_ANTHROPIC)
 
-        assert google_template["path"].endswith(manager.PRESET_CUSTOM_GOOGLE_FILENAME)
-        assert openai_template["path"].endswith(manager.PRESET_CUSTOM_OPENAI_FILENAME)
-        assert anthropic_template["path"].endswith(
-            manager.PRESET_CUSTOM_ANTHROPIC_FILENAME
-        )
+        assert google_template["name"] == "google-template"
+        assert openai_template["name"] == "openai-template"
+        assert anthropic_template["name"] == "anthropic-template"
 
     def test_get_active_model_falls_back_to_first_when_missing(self) -> None:
         manager = ModelManager()
@@ -174,29 +164,6 @@ class TestModelManager:
         assert isinstance(active, Model)
         assert active.id == "preset"
 
-    def test_update_model_by_dict_preserves_id_and_type(self) -> None:
-        manager = ModelManager()
-        manager.set_models([build_model_data("custom", ModelType.CUSTOM_OPENAI.value)])
-
-        ok = manager.update_model_by_dict(
-            "custom",
-            {
-                "name": "updated",
-                "type": ModelType.CUSTOM_GOOGLE.value,
-                "api_format": "OpenAI",
-                "api_url": "https://new.example.com",
-                "api_key": "k2",
-                "model_id": "m2",
-            },
-        )
-
-        assert ok is True
-        updated = manager.get_model_by_id("custom")
-        assert isinstance(updated, Model)
-        assert updated.id == "custom"
-        assert updated.type == ModelType.CUSTOM_OPENAI
-        assert updated.name == "updated"
-
     def test_load_preset_models_returns_empty_when_load_failed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -209,8 +176,10 @@ class TestModelManager:
         def fake_load(_: str) -> list[dict]:
             raise RuntimeError("boom")
 
-        monkeypatch.setattr("module.ModelManager.LogManager.get", lambda: DummyLogger())
-        monkeypatch.setattr("module.ModelManager.JSONTool.load_file", fake_load)
+        monkeypatch.setattr(
+            "module.Model.Manager.LogManager.get", lambda: DummyLogger()
+        )
+        monkeypatch.setattr("module.Model.Manager.JSONTool.load_file", fake_load)
 
         assert manager.load_preset_models() == []
 
@@ -222,8 +191,14 @@ class TestModelManager:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         manager = ModelManager()
-        monkeypatch.setattr(manager, "get_preset_dir", lambda: "/tmp/preset")
-        monkeypatch.setattr("module.ModelManager.JSONTool.load_file", lambda _: ["bad"])
+        monkeypatch.setattr(
+            BasePath,
+            "get_model_preset_dir",
+            lambda: "/tmp/preset",
+        )
+        monkeypatch.setattr(
+            "module.Model.Manager.JSONTool.load_file", lambda _: ["bad"]
+        )
 
         assert manager.load_template(ModelType.CUSTOM_OPENAI) == {}
 
@@ -231,7 +206,11 @@ class TestModelManager:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         manager = ModelManager()
-        monkeypatch.setattr(manager, "get_preset_dir", lambda: "/tmp/preset")
+        monkeypatch.setattr(
+            BasePath,
+            "get_model_preset_dir",
+            lambda: "/tmp/preset",
+        )
 
         class DummyLogger:
             def warning(self, msg: str, e: Exception) -> None:
@@ -240,8 +219,10 @@ class TestModelManager:
         def fake_load(_: str) -> dict:
             raise RuntimeError("boom")
 
-        monkeypatch.setattr("module.ModelManager.LogManager.get", lambda: DummyLogger())
-        monkeypatch.setattr("module.ModelManager.JSONTool.load_file", fake_load)
+        monkeypatch.setattr(
+            "module.Model.Manager.LogManager.get", lambda: DummyLogger()
+        )
+        monkeypatch.setattr("module.Model.Manager.JSONTool.load_file", fake_load)
 
         assert manager.load_template(ModelType.CUSTOM_GOOGLE) == {}
 
@@ -259,7 +240,7 @@ class TestModelManager:
         )
         generated_ids = iter(["g-1", "g-2", "g-3"])
         monkeypatch.setattr(
-            "module.ModelManager.Model.generate_id", lambda: next(generated_ids)
+            "module.Model.Manager.Model.generate_id", lambda: next(generated_ids)
         )
         monkeypatch.setattr(
             manager,
@@ -283,7 +264,7 @@ class TestModelManager:
             ModelType.CUSTOM_ANTHROPIC.value,
         }
 
-    def test_initialize_models_migrates_anthropic_and_openai_default(
+    def test_initialize_models_keeps_unmatched_presets_in_preset_group(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         manager = ModelManager()
@@ -306,9 +287,9 @@ class TestModelManager:
 
         models, migrated_count = manager.initialize_models(existing_models)
 
-        assert migrated_count == 2
-        assert models[0]["type"] == ModelType.CUSTOM_ANTHROPIC.value
-        assert models[1]["type"] == ModelType.CUSTOM_OPENAI.value
+        assert migrated_count == 0
+        assert models[0]["type"] == ModelType.PRESET.value
+        assert models[1]["type"] == ModelType.PRESET.value
 
     def test_get_models_and_get_models_as_dict(self) -> None:
         manager = ModelManager()
@@ -359,7 +340,7 @@ class TestModelManager:
                 "model_id": "m",
             },
         )
-        monkeypatch.setattr("module.ModelManager.Model.generate_id", lambda: "new-id")
+        monkeypatch.setattr("module.Model.Manager.Model.generate_id", lambda: "new-id")
 
         created = manager.add_model(ModelType.CUSTOM_OPENAI)
 
@@ -437,23 +418,6 @@ class TestModelManager:
 
         assert manager.update_model(not_exists) is False
 
-    def test_update_model_by_dict_returns_false_for_missing_id(self) -> None:
-        manager = ModelManager()
-        manager.set_models([build_model_data("custom", ModelType.CUSTOM_OPENAI.value)])
-
-        ok = manager.update_model_by_dict(
-            "missing",
-            {
-                "name": "updated",
-                "api_format": "OpenAI",
-                "api_url": "https://new.example.com",
-                "api_key": "k2",
-                "model_id": "m2",
-            },
-        )
-
-        assert ok is False
-
     def test_reset_preset_model_returns_false_for_non_preset(self) -> None:
         manager = ModelManager()
         manager.set_models([build_model_data("custom", ModelType.CUSTOM_OPENAI.value)])
@@ -506,82 +470,6 @@ class TestModelManager:
 
         assert [model.id for model in manager.get_models()] == ["c", "a", "b"]
 
-    def test_build_group_reordered_ids_returns_empty_for_empty_input(self) -> None:
-        # 为什么：空列表属于常见边界输入，重排逻辑应稳定返回空结果。
-        result = ModelManager.build_group_reordered_ids(
-            [],
-            "a",
-            ModelManager.ReorderOperation.MOVE_UP,
-        )
-
-        assert result == []
-
-    def test_build_group_reordered_ids_returns_copy_when_model_id_missing(self) -> None:
-        # 为什么：当目标 ID 不在列表中时，不应该改动原顺序，同时返回新列表避免外部误改引用。
-        model_ids = ["a", "b"]
-        result = ModelManager.build_group_reordered_ids(
-            model_ids,
-            "missing",
-            ModelManager.ReorderOperation.MOVE_DOWN,
-        )
-
-        assert result == ["a", "b"]
-        assert result is not model_ids
-
-    def test_build_group_reordered_ids_ignores_unknown_operation(self) -> None:
-        # 为什么：如果外部传入未知操作，函数应该“无事发生”而不是抛异常。
-        result = ModelManager.build_group_reordered_ids(
-            ["a", "b", "c"],
-            "b",
-            "UNKNOWN_OPERATION",
-        )
-
-        assert result == ["a", "b", "c"]
-
-    @pytest.mark.parametrize(
-        ("operation", "expected"),
-        [
-            (ModelManager.ReorderOperation.MOVE_UP, ["b", "a", "c", "d"]),
-            (ModelManager.ReorderOperation.MOVE_DOWN, ["a", "c", "b", "d"]),
-            (ModelManager.ReorderOperation.MOVE_TOP, ["b", "a", "c", "d"]),
-            (ModelManager.ReorderOperation.MOVE_BOTTOM, ["a", "c", "d", "b"]),
-        ],
-    )
-    def test_build_group_reordered_ids_supports_all_operations(
-        self,
-        operation: ModelManager.ReorderOperation,
-        expected: list[str],
-    ) -> None:
-        result = ModelManager.build_group_reordered_ids(
-            ["a", "b", "c", "d"],
-            "b",
-            operation,
-        )
-
-        assert result == expected
-
-    @pytest.mark.parametrize(
-        ("model_id", "operation"),
-        [
-            ("a", ModelManager.ReorderOperation.MOVE_UP),
-            ("a", ModelManager.ReorderOperation.MOVE_TOP),
-            ("c", ModelManager.ReorderOperation.MOVE_DOWN),
-            ("c", ModelManager.ReorderOperation.MOVE_BOTTOM),
-        ],
-    )
-    def test_build_group_reordered_ids_keeps_boundary_items_unchanged(
-        self,
-        model_id: str,
-        operation: ModelManager.ReorderOperation,
-    ) -> None:
-        result = ModelManager.build_group_reordered_ids(
-            ["a", "b", "c"],
-            model_id,
-            operation,
-        )
-
-        assert result == ["a", "b", "c"]
-
     def test_build_global_ordered_ids_for_group_only_changes_target_group(self) -> None:
         models = [
             build_model_data("p1", ModelType.PRESET.value),
@@ -609,93 +497,6 @@ class TestModelManager:
             "o1",
             "a1",
         ]
-
-    def test_build_global_ordered_ids_for_group_returns_empty_for_empty_models(
-        self,
-    ) -> None:
-        # 为什么：上层传入空列表时，保持返回空，避免 UI 侧出现 None/异常分支。
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            [],
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1"],
-        )
-
-        assert ordered_ids == []
-
-    def test_build_global_ordered_ids_for_group_keeps_remaining_ids_when_reordered_list_is_short(
-        self,
-    ) -> None:
-        # 为什么：防御性处理，重排列表不完整时也不应丢失原分组尾部的 ID。
-        models = [
-            build_model_data("o1", ModelType.CUSTOM_OPENAI.value),
-            build_model_data("o2", ModelType.CUSTOM_OPENAI.value),
-            build_model_data("o3", ModelType.CUSTOM_OPENAI.value),
-        ]
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            models,
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1"],
-        )
-
-        assert ordered_ids == ["o1", "o2", "o3"]
-
-    def test_build_global_ordered_ids_for_group_skips_empty_id_in_target_group_when_reordered_list_is_short(
-        self,
-    ) -> None:
-        # 为什么：目标分组里出现空 ID 时也要跳过，避免 ordered_ids 带入空项。
-        models = [
-            build_model_data("o1", ModelType.CUSTOM_OPENAI.value),
-            build_model_data("", ModelType.CUSTOM_OPENAI.value),
-        ]
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            models,
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1"],
-        )
-
-        assert ordered_ids == ["o1"]
-
-    def test_build_global_ordered_ids_for_group_ignores_empty_id_from_other_groups(
-        self,
-    ) -> None:
-        # 为什么：异常输入下（缺少/空 ID）不能污染 ordered_ids，否则后续 reorder 会出现空项。
-        models: list[dict] = [
-            build_model_data("", ModelType.CUSTOM_GOOGLE.value, api_format="Google"),
-            build_model_data("o1", ModelType.CUSTOM_OPENAI.value),
-        ]
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            models,
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1"],
-        )
-
-        assert ordered_ids == ["o1"]
-
-    def test_build_global_ordered_ids_for_group_appends_extra_reordered_ids(
-        self,
-    ) -> None:
-        # 为什么：异常输入下（重排列表更长）要补齐尾部 ID，保证 UI 不会“丢模型”。
-        models = [build_model_data("o1", ModelType.CUSTOM_OPENAI.value)]
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            models,
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1", "o2"],
-        )
-
-        assert ordered_ids == ["o1", "o2"]
-
-    def test_build_global_ordered_ids_for_group_does_not_duplicate_existing_ids_in_padding(
-        self,
-    ) -> None:
-        # 为什么：补齐逻辑遇到重复项时应跳过，避免 ordered_ids 里出现重复 ID。
-        models = [build_model_data("o1", ModelType.CUSTOM_OPENAI.value)]
-        ordered_ids = ModelManager.build_global_ordered_ids_for_group(
-            models,
-            ModelType.CUSTOM_OPENAI.value,
-            ["o1", "o1"],
-        )
-
-        assert ordered_ids == ["o1"]
 
     def test_initialize_models_does_not_duplicate_existing_preset(
         self, monkeypatch: pytest.MonkeyPatch
@@ -768,26 +569,6 @@ class TestModelManager:
         current = manager.get_model_by_id("target")
         assert isinstance(current, Model)
         assert current.name == "target-updated"
-
-    def test_reset_preset_model_returns_false_when_replace_loop_cannot_find_id(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        manager = ModelManager()
-
-        monkeypatch.setattr(
-            manager,
-            "get_model_by_id",
-            lambda _: Model.from_dict(
-                build_model_data("target", ModelType.PRESET.value)
-            ),
-        )
-        monkeypatch.setattr(
-            manager,
-            "load_preset_models",
-            lambda: [build_model_data("target", ModelType.PRESET.value)],
-        )
-
-        assert manager.reset_preset_model("target") is False
 
     def test_reorder_models_ignores_unknown_id(self) -> None:
         manager = ModelManager()

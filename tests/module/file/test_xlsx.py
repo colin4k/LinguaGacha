@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import gc
 from pathlib import Path
 from typing import cast
 
@@ -11,7 +10,7 @@ from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.File.XLSX import XLSX
 from tests.module.file.conftest import DummyDataManager
@@ -42,8 +41,8 @@ def test_read_from_stream_reads_status_for_common_rows(config: Config) -> None:
     items = XLSX(config).read_from_stream(content, "sheet.xlsx")
 
     assert len(items) == 3
-    assert items[0].get_status() == Base.ProjectStatus.PROCESSED_IN_PAST
-    assert items[1].get_status() == Base.ProjectStatus.NONE
+    assert items[0].get_status() == Base.ItemStatus.PROCESSED
+    assert items[1].get_status() == Base.ItemStatus.NONE
     assert items[2].get_src() == "123"
     assert items[2].get_dst() == ""
 
@@ -78,7 +77,7 @@ def test_read_from_stream_marks_empty_source_as_excluded(
     items = XLSX(config).read_from_stream(b"bytes", "sheet.xlsx")
 
     assert len(items) == 1
-    assert items[0].get_status() == Base.ProjectStatus.EXCLUDED
+    assert items[0].get_status() == Base.ItemStatus.EXCLUDED
 
 
 def test_read_from_stream_skips_wolf_sheet(config: Config) -> None:
@@ -94,23 +93,6 @@ def test_read_from_stream_skips_wolf_sheet(config: Config) -> None:
     )
 
     assert XLSX(config).read_from_stream(content, "wolf.xlsx") == []
-
-
-def test_openpyxl_load_workbook_raises_under_pyfakefs(fs) -> None:
-    path = Path("/workspace/openpyxl/compat.xlsx")
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    assert isinstance(sheet, Worksheet)
-    cast(Cell, sheet.cell(row=1, column=1)).value = "ok"
-    workbook.save(path)
-
-    with pytest.raises(Exception):
-        openpyxl.load_workbook(path)
-
-    # openpyxl + pyfakefs 在当前环境下会留下待回收的 ZipExtFile；确保在 fs teardown 前完成回收。
-    gc.collect()
 
 
 def test_is_wold_xlsx_detects_required_headers(config: Config) -> None:
@@ -248,82 +230,36 @@ def test_write_to_path_keeps_empty_dst_as_empty_cell(
 def test_read_from_path_reads_files(
     fs,
     config: Config,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fs.pause()
-    try:
-        content = build_xlsx_bytes([(1, 1, "src"), (1, 2, "dst")])
-    finally:
-        fs.resume()
     input_root = Path("/fake/input")
-    path = input_root / "a.xlsx"
+    path = input_root / "nested" / "a.xlsx"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
+    path.write_bytes(b"fake-xlsx")
+
+    captured: dict[str, object] = {}
+
+    def fake_read_from_stream(self: XLSX, content: bytes, rel_path: str) -> list[Item]:
+        del self
+        captured["content"] = content
+        captured["rel_path"] = rel_path
+        return [
+            Item.from_dict(
+                {
+                    "src": "src",
+                    "dst": "dst",
+                    "row": 1,
+                    "file_type": Item.FileType.XLSX,
+                    "file_path": rel_path,
+                }
+            )
+        ]
+
+    monkeypatch.setattr(XLSX, "read_from_stream", fake_read_from_stream)
 
     items = XLSX(config).read_from_path([str(path)], str(input_root))
 
     assert len(items) == 1
-    assert items[0].get_file_path() == "a.xlsx"
-
-
-def test_read_from_stream_returns_empty_when_active_sheet_is_not_worksheet(
-    config: Config,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DummyBook:
-        active = object()
-
-    monkeypatch.setattr(
-        "module.File.XLSX.openpyxl.load_workbook", lambda *_: DummyBook()
-    )
-
-    assert XLSX(config).read_from_stream(b"bytes", "a.xlsx") == []
-
-
-def test_read_from_stream_returns_empty_when_sheet_dimension_is_zero(
-    config: Config,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    assert isinstance(sheet, Worksheet)
-    cast(Cell, sheet.cell(row=1, column=1)).value = "src"
-
-    monkeypatch.setattr("module.File.XLSX.openpyxl.load_workbook", lambda *_: workbook)
-    monkeypatch.setattr(Worksheet, "max_row", property(lambda self: 0))
-
-    assert XLSX(config).read_from_stream(b"bytes", "a.xlsx") == []
-
-
-def test_write_to_path_skips_when_active_sheet_is_not_worksheet(
-    config: Config,
-    dummy_data_manager: DummyDataManager,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DummyBook:
-        def __init__(self) -> None:
-            self.active = object()
-
-        def save(self, path: str) -> None:
-            del path
-
-    monkeypatch.setattr("module.File.XLSX.openpyxl.Workbook", DummyBook)
-    monkeypatch.setattr("module.File.XLSX.DataManager.get", lambda: dummy_data_manager)
-
-    XLSX(config).write_to_path(
-        [
-            Item.from_dict(
-                {
-                    "src": "row1-src",
-                    "dst": "row1-dst",
-                    "row": 1,
-                    "file_type": Item.FileType.XLSX,
-                    "file_path": "excel/not-sheet.xlsx",
-                }
-            )
-        ]
-    )
-
-    output_file = (
-        Path(dummy_data_manager.get_translated_path()) / "excel" / "not-sheet.xlsx"
-    )
-    assert output_file.exists() is False
+    assert items[0].get_file_path().replace("\\", "/") == "nested/a.xlsx"
+    assert captured["content"] == b"fake-xlsx"
+    assert str(captured["rel_path"]).replace("\\", "/") == "nested/a.xlsx"

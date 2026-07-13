@@ -3,7 +3,7 @@ from typing import Callable
 from typing import Self
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 
 
@@ -20,6 +20,8 @@ class Engine:
         self.request_in_flight_count: int = 0
         self.request_in_flight_lock = threading.Lock()
 
+        self.active_retranslate_item_ids: list[int] = []
+
         # 线程锁
         self.lock = threading.Lock()
 
@@ -31,13 +33,19 @@ class Engine:
         return cls.__instance__
 
     def run(self) -> None:
-        from module.Engine.APITester.APITester import APITester
+        from module.Engine.Analysis.Analysis import Analysis
 
-        self.api_test = APITester()
+        self.analysis = Analysis()
 
-        from module.Engine.Translator.Translator import Translator
+        from module.Engine.Translation.Translation import Translation
 
-        self.translator = Translator()
+        self.translation = Translation()
+
+        from module.Engine.Retranslate.RetranslateTask import (
+            RetranslateTask,
+        )
+
+        self.retranslate = RetranslateTask()
 
     def get_status(self) -> Base.TaskStatus:
         with self.lock:
@@ -60,25 +68,64 @@ class Engine:
         with self.request_in_flight_lock:
             return self.request_in_flight_count
 
+    def is_busy(self) -> bool:
+        """统一暴露引擎忙碌态，避免上层重复判断枚举。"""
+
+        return Base.is_engine_busy(self.get_status())
+
+    def get_active_task_type(self) -> str:
+        """把引擎运行状态映射为当前活跃任务类型。"""
+
+        status = self.get_status()
+        if status == Base.TaskStatus.TRANSLATING:
+            return "translation"
+        if status == Base.TaskStatus.ANALYZING:
+            return "analysis"
+        if status == Base.TaskStatus.RETRANSLATING:
+            return "retranslate"
+        return "idle"
+
     def get_running_task_count(self) -> int:
         # 后台任务数（用于 busy 判断）：包含占用 limiter 的并发与单条翻译线程。
         # UI 需要“实时请求数”时使用 get_request_in_flight_count()。
         count = 0
 
-        translator = getattr(self, "translator", None)
-        if translator is not None:
-            count += translator.get_concurrency_in_use()
+        for worker_name in ("translation", "analysis"):
+            worker = getattr(self, worker_name, None)
+            if worker is not None:
+                count += worker.get_concurrency_in_use()
 
         single_task_name = f"{self.TASK_PREFIX}SINGLE"
         count += sum(1 for t in threading.enumerate() if t.name == single_task_name)
         return count
+
+    def set_active_retranslate_item_ids(self, item_ids: list[int]) -> None:
+        with self.lock:
+            self.active_retranslate_item_ids = list(dict.fromkeys(item_ids))
+
+    def remove_active_retranslate_item_ids(self, item_ids: list[int]) -> None:
+        finished_item_ids = set(item_ids)
+        with self.lock:
+            self.active_retranslate_item_ids = [
+                item_id
+                for item_id in self.active_retranslate_item_ids
+                if item_id not in finished_item_ids
+            ]
+
+    def clear_active_retranslate_item_ids(self) -> None:
+        with self.lock:
+            self.active_retranslate_item_ids = []
+
+    def get_active_retranslate_item_ids(self) -> list[int]:
+        with self.lock:
+            return list(self.active_retranslate_item_ids)
 
     def translate_single_item(
         self, item: Item, config: Config, callback: Callable[[Item, bool], None]
     ) -> None:
         """
         对单个条目执行翻译，通过后台线程 + 回调异步返回结果。
-        复用 TranslatorTask 的完整翻译流程（预处理、响应校验、日志等）。
+        复用 TranslationTask 的完整翻译流程（预处理、响应校验、日志等）。
 
         Args:
             item: 待翻译的 Item 对象
@@ -86,6 +133,6 @@ class Engine:
             callback: 翻译完成后的回调函数，签名为 (item, success) -> None
         """
         # 延迟导入避免循环依赖
-        from module.Engine.Translator.TranslatorTask import TranslatorTask
+        from module.Engine.Translation.TranslationTask import TranslationTask
 
-        TranslatorTask.translate_single(item, config, callback)
+        TranslationTask.translate_single(item, config, callback)

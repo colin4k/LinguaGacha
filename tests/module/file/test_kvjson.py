@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.File.KVJSON import KVJSON
 from tests.module.file.conftest import DummyDataManager
@@ -27,9 +27,9 @@ def test_read_from_stream_sets_status_by_src_dst(
     )
 
     assert len(items) == 3
-    assert items[0].get_status() == Base.ProjectStatus.EXCLUDED
-    assert items[1].get_status() == Base.ProjectStatus.PROCESSED_IN_PAST
-    assert items[2].get_status() == Base.ProjectStatus.NONE
+    assert items[0].get_status() == Base.ItemStatus.EXCLUDED
+    assert items[1].get_status() == Base.ItemStatus.PROCESSED
+    assert items[2].get_status() == Base.ItemStatus.NONE
     # value==key 视为未翻译：dst 需为空字符串。
     assert items[2].get_src() == "待翻"
     assert items[2].get_dst() == ""

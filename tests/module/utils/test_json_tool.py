@@ -1,46 +1,39 @@
 import codecs
 import json
+import math
 from pathlib import Path
 from typing import Any
 
-import orjson
 import pytest
 
 from module.Utils.JSONTool import JSONTool
 
 
 class TestJSONToolLoads:
-    def test_loads_valid_json_string(self) -> None:
-        result = JSONTool.loads('{"name":"LinguaGacha","ok":true}')
-
-        assert result == {"name": "LinguaGacha", "ok": True}
-
-    def test_loads_valid_json_bytes(self) -> None:
-        result = JSONTool.loads(b'{"count":2}')
-
-        assert result == {"count": 2}
+    @pytest.mark.parametrize(
+        ("payload", "expected"),
+        [
+            ('{"name":"LinguaGacha","ok":true}', {"name": "LinguaGacha", "ok": True}),
+            (b'{"count":2}', {"count": 2}),
+        ],
+    )
+    def test_loads_valid_json_payload(
+        self,
+        payload: str | bytes,
+        expected: object,
+    ) -> None:
+        assert JSONTool.loads(payload) == expected
 
     def test_loads_with_utf8_bom(self) -> None:
         data = codecs.BOM_UTF8 + b'{"k":"v"}'
 
         assert JSONTool.loads(data) == {"k": "v"}
 
-    def test_loads_fallback_to_stdlib_when_orjson_fails(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        original_orjson_loads = orjson.loads
+    def test_loads_falls_back_to_stdlib_for_non_finite_numbers(self) -> None:
+        result = JSONTool.loads('{"score": NaN}')
 
-        def fake_orjson_loads(_: str | bytes) -> Any:
-            try:
-                original_orjson_loads(b"{")
-            except orjson.JSONDecodeError as e:
-                raise e
-            raise AssertionError("unreachable")
-
-        monkeypatch.setattr("module.Utils.JSONTool.orjson.loads", fake_orjson_loads)
-
-        assert JSONTool.loads('{"fallback": true}') == {"fallback": True}
+        assert isinstance(result, dict)
+        assert math.isnan(result["score"])
 
     def test_loads_invalid_json_raises(self) -> None:
         with pytest.raises(json.JSONDecodeError):
@@ -53,6 +46,11 @@ class TestJSONToolDumps:
 
         assert isinstance(text, str)
         assert text == '{"id":1}'
+
+    def test_dumps_with_custom_indent_returns_pretty_text(self) -> None:
+        text = JSONTool.dumps({"id": 1}, indent=4)
+
+        assert text == '{\n    "id": 1\n}'
 
     def test_dumps_bytes_indent_zero_is_compact(self) -> None:
         data = JSONTool.dumps_bytes({"a": 1, "b": 2}, indent=0)
@@ -135,39 +133,60 @@ class TestJSONToolRepairLoads:
 
 class TestJSONToolFileIO:
     def test_save_then_load_file_roundtrip(self, fs) -> None:
-        del fs
         path = Path("/workspace/json_tool/data.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"name": "LG", "value": 3}
 
-        JSONTool.save_file(path, payload)
+        JSONTool.save_file(path, payload, indent=0)
 
         assert JSONTool.load_file(path) == payload
 
+    def test_save_file_uses_pretty_indent_by_default(self, fs) -> None:
+        path = Path("/workspace/json_tool/default_indent.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        JSONTool.save_file(path, {"name": "LG"})
+
+        assert path.read_text(encoding="utf-8") == '{\n    "name": "LG"\n}'
+
     def test_load_file_with_utf8_bom(self, fs) -> None:
-        del fs
         path = Path("/workspace/json_tool/bom.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(codecs.BOM_UTF8 + b'{"x":1}')
 
         assert JSONTool.load_file(path) == {"x": 1}
 
-    def test_save_file_serialize_failed_does_not_truncate_file(
+    @pytest.mark.parametrize(
+        ("indent", "expected_bytes"),
+        [
+            (0, b'{"text":"\\ud800"}'),
+            (4, b'{\n    "text": "\\ud800"\n}'),
+        ],
+    )
+    def test_save_file_roundtrip_preserves_lone_surrogate(
         self,
         fs,
-        monkeypatch: pytest.MonkeyPatch,
+        indent: int,
+        expected_bytes: bytes,
     ) -> None:
-        del fs
+        path = Path(f"/workspace/json_tool/lone_surrogate_{indent}.json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"text": "\ud800"}
+
+        JSONTool.save_file(path, payload, indent=indent)
+
+        assert path.read_bytes() == expected_bytes
+        assert JSONTool.load_file(path) == payload
+
+    def test_save_file_serialize_failed_does_not_truncate_file(self, fs) -> None:
+        class NotSerializable:
+            pass
+
         path = Path("/workspace/json_tool/atomic.json")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('{"old":1}', encoding="utf-8")
 
-        def broken_dumps_bytes(_: type[JSONTool], __: Any, *, indent: int = 0) -> bytes:
-            raise TypeError("serialize failed")
-
-        monkeypatch.setattr(JSONTool, "dumps_bytes", classmethod(broken_dumps_bytes))
-
         with pytest.raises(TypeError):
-            JSONTool.save_file(path, {"new": 2}, indent=4)
+            JSONTool.save_file(path, NotSerializable(), indent=4)
 
         assert path.read_text(encoding="utf-8") == '{"old":1}'

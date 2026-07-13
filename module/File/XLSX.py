@@ -5,10 +5,10 @@ import openpyxl
 import openpyxl.worksheet.worksheet
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
-from module.Data.SpreadsheetUtil import SpreadsheetUtil
+from module.Utils.SpreadsheetTool import SpreadsheetTool
 
 
 class XLSX(Base):
@@ -71,7 +71,7 @@ class XLSX(Base):
                             "row": row,
                             "file_type": Item.FileType.XLSX,
                             "file_path": rel_path,
-                            "status": Base.ProjectStatus.EXCLUDED,
+                            "status": Base.ItemStatus.EXCLUDED,
                         }
                     )
                 )
@@ -84,7 +84,7 @@ class XLSX(Base):
                             "row": row,
                             "file_type": Item.FileType.XLSX,
                             "file_path": rel_path,
-                            "status": Base.ProjectStatus.PROCESSED_IN_PAST,
+                            "status": Base.ItemStatus.PROCESSED,
                         }
                     )
                 )
@@ -97,7 +97,7 @@ class XLSX(Base):
                             "row": row,
                             "file_type": Item.FileType.XLSX,
                             "file_path": rel_path,
-                            "status": Base.ProjectStatus.NONE,
+                            "status": Base.ItemStatus.NONE,
                         }
                     )
                 )
@@ -134,10 +134,10 @@ class XLSX(Base):
             # 将数据写入工作表
             for item in sorted_items:
                 row: int = item.get_row()
-                SpreadsheetUtil.set_cell_value(
+                SpreadsheetTool.set_cell_value(
                     sheet, row=row, column=1, value=item.get_src()
                 )
-                SpreadsheetUtil.set_cell_value(
+                SpreadsheetTool.set_cell_value(
                     sheet, row=row, column=2, value=item.get_dst()
                 )
 

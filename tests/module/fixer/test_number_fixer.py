@@ -1,10 +1,9 @@
+import pytest
+
 from module.Fixer.NumberFixer import NumberFixer
 
 
 class TestNumberFixer:
-    def test_init_does_not_crash(self) -> None:
-        NumberFixer()
-
     def test_return_original_when_source_has_no_circled_number(self) -> None:
         src = "奖励1"
         dst = "Reward 1"
@@ -22,12 +21,6 @@ class TestNumberFixer:
         dst = "1和3"
 
         assert NumberFixer.fix(src, dst) == "①和③"
-
-    def test_skip_when_digit_value_does_not_match_circled_number(self) -> None:
-        src = "奖励②"
-        dst = "Reward 1"
-
-        assert NumberFixer.fix(src, dst) == dst
 
     def test_return_original_when_number_token_count_differs(self) -> None:
         src = "①2"
@@ -47,8 +40,15 @@ class TestNumberFixer:
 
         assert NumberFixer.fix(src, dst) == "① 2"
 
-    def test_safe_int_value_error_skips_restore(self) -> None:
-        src = "①"
-        dst = "㊿"
-
+    @pytest.mark.parametrize(
+        ("src", "dst"),
+        [
+            ("奖励②", "Reward 1"),
+            ("①", "㊿"),
+            ("奖励①", "Reward 99"),
+        ],
+    )
+    def test_return_original_when_circled_number_cannot_be_safely_restored(
+        self, src: str, dst: str
+    ) -> None:
         assert NumberFixer.fix(src, dst) == dst

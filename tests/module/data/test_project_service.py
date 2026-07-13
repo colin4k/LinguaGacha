@@ -3,8 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from model.Item import Item
-from module.Data.ProjectService import ProjectService
+from base.BasePath import BasePath
+from module.Data.Core.Item import Item
+from module.Data.Project.ProjectService import ProjectService, ProjectSourceFile
 
 
 def test_is_supported_file_is_case_insensitive() -> None:
@@ -57,6 +58,239 @@ def test_get_relative_path_for_file_and_directory(fs) -> None:
     assert service.get_relative_path(str(base_dir), str(nested)) == "sub\\b.txt"
 
 
+def test_collect_source_files_from_paths_keeps_order_and_removes_duplicates(fs) -> None:
+    del fs
+    service = ProjectService()
+    root_path = Path("/workspace/project_service")
+    root_path.mkdir(parents=True, exist_ok=True)
+    first_file = root_path / "a.txt"
+    second_file = root_path / "b.md"
+    ignored_file = root_path / "c.bin"
+    first_file.write_text("a", encoding="utf-8")
+    second_file.write_text("b", encoding="utf-8")
+    ignored_file.write_bytes(b"c")
+
+    collected = service.collect_source_files_from_paths(
+        [
+            str(first_file),
+            str(ignored_file),
+            str(first_file),
+            " ",
+            str(second_file),
+        ]
+    )
+
+    assert collected == [str(first_file), str(second_file)]
+
+
+def test_collect_source_file_entries_preserves_single_directory_root(fs) -> None:
+    del fs
+    service = ProjectService()
+    root_path = Path("/workspace/project_service")
+    source_dir = root_path / "source"
+    nested_file = source_dir / "chapter" / "script.txt"
+    nested_file.parent.mkdir(parents=True, exist_ok=True)
+    nested_file.write_text("script", encoding="utf-8")
+
+    entries = service.collect_source_file_entries([str(source_dir)])
+
+    assert entries == [
+        ProjectSourceFile(
+            source_path=str(nested_file),
+            rel_path="chapter\\script.txt",
+        )
+    ]
+
+
+def test_collect_source_file_entries_uses_file_names_for_batch_files(fs) -> None:
+    del fs
+    service = ProjectService()
+    root_path = Path("/workspace/project_service")
+    first_file = root_path / "source" / "script.txt"
+    second_file = root_path / "source" / "chapter" / "script.txt"
+    first_file.parent.mkdir(parents=True, exist_ok=True)
+    second_file.parent.mkdir(parents=True, exist_ok=True)
+    first_file.write_text("first", encoding="utf-8")
+    second_file.write_text("second", encoding="utf-8")
+
+    entries = service.collect_source_file_entries([str(first_file), str(second_file)])
+
+    assert entries == [
+        ProjectSourceFile(
+            source_path=str(first_file),
+            rel_path="script.txt",
+        ),
+        ProjectSourceFile(
+            source_path=str(second_file),
+            rel_path="script_2.txt",
+        ),
+    ]
+
+
+def test_build_unique_relative_path_uses_stable_suffix_for_conflicts() -> None:
+    service = ProjectService()
+    used_rel_paths: set[str] = set()
+
+    first_path = service.build_unique_relative_path(
+        rel_path="script.txt",
+        used_rel_paths=used_rel_paths,
+        source_index=0,
+    )
+    second_path = service.build_unique_relative_path(
+        rel_path="script.txt",
+        used_rel_paths=used_rel_paths,
+        source_index=1,
+    )
+
+    assert first_path == "script.txt"
+    assert second_path == "script_2.txt"
+
+
+def test_build_unique_relative_path_is_case_insensitive_for_conflicts() -> None:
+    service = ProjectService()
+    used_rel_paths: set[str] = set()
+
+    first_path = service.build_unique_relative_path(
+        rel_path="Script.txt",
+        used_rel_paths=used_rel_paths,
+        source_index=0,
+    )
+    second_path = service.build_unique_relative_path(
+        rel_path="script.txt",
+        used_rel_paths=used_rel_paths,
+        source_index=1,
+    )
+
+    assert first_path == "Script.txt"
+    assert second_path == "script_2.txt"
+
+
+def test_create_preview_and_commit_use_same_batch_file_set(
+    fs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del fs
+    service = ProjectService()
+    root_path = Path("/workspace/project_service")
+    source_dir = root_path / "source"
+    source_dir.mkdir(parents=True, exist_ok=True)
+    first_file = source_dir / "a.txt"
+    second_file = source_dir / "nested" / "b.md"
+    second_file.parent.mkdir()
+    first_file.write_bytes(b"a")
+    second_file.write_bytes(b"b")
+    output_path = root_path / "out" / "demo.lg"
+    fake_db_assets: list[tuple[str, int]] = []
+
+    class FakeConnection:
+        def commit(self) -> None:
+            return
+
+    class FakeConnectionContext:
+        def __enter__(self) -> FakeConnection:
+            return FakeConnection()
+
+        def __exit__(self, exc_type, exc_value, traceback) -> None:
+            del exc_type
+            del exc_value
+            del traceback
+
+    class FakeCommitDB:
+        def connection(self) -> FakeConnectionContext:
+            return FakeConnectionContext()
+
+        def add_asset(
+            self,
+            rel_path: str,
+            compressed: bytes,
+            original_size: int,
+            *,
+            sort_order: int | None = None,
+            conn: FakeConnection | None = None,
+        ) -> None:
+            del compressed
+            del original_size
+            del conn
+            fake_db_assets.append((rel_path, int(sort_order or 0)))
+
+        def set_items(
+            self,
+            items_dicts: list[dict],
+            conn: FakeConnection | None = None,
+        ) -> None:
+            del items_dicts
+            del conn
+
+        def upsert_meta_entries(
+            self,
+            entries: dict[str, object],
+            conn: FakeConnection | None = None,
+        ) -> None:
+            del entries
+            del conn
+
+    class FakeConfig:
+        source_language = "JA"
+        target_language = "ZH"
+        mtool_optimizer_enable = True
+        skip_duplicate_source_text_enable = True
+
+    class FakeFileManager:
+        def __init__(self, config) -> None:
+            del config
+
+        def parse_asset(self, rel_path: str, original_data: bytes) -> list[Item]:
+            del rel_path
+            del original_data
+            return []
+
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.Config.load",
+        lambda self: FakeConfig(),
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.FileManager",
+        FakeFileManager,
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.LGDatabase.create",
+        lambda output_path, project_name: FakeCommitDB(),
+    )
+
+    preview = service.build_create_preview([str(first_file), str(second_file)])
+    files = list(preview["files"])
+
+    service.commit_create_preview(
+        source_paths=[str(first_file), str(second_file)],
+        output_path=str(output_path),
+        files=files,
+        items=[],
+        project_settings={
+            "source_language": "JA",
+            "target_language": "ZH",
+            "mtool_optimizer_enable": True,
+            "skip_duplicate_source_text_enable": True,
+        },
+        translation_extras={},
+        prefilter_config={},
+    )
+
+    assert files == [
+        {
+            "rel_path": "a.txt",
+            "file_type": "NONE",
+            "sort_index": 0,
+            "source_path": str(first_file),
+        },
+        {
+            "rel_path": "b.md",
+            "file_type": "NONE",
+            "sort_index": 1,
+            "source_path": str(second_file),
+        },
+    ]
+    assert fake_db_assets == [("a.txt", 0), ("b.md", 1)]
+
+
 def test_get_project_preview_raises_when_file_not_exists(fs) -> None:
     del fs
     service = ProjectService()
@@ -73,7 +307,9 @@ def test_get_project_preview_reads_summary(monkeypatch: pytest.MonkeyPatch, fs) 
     lg_path.write_bytes(b"db")
 
     fake_db = SimpleNamespace(get_project_summary=lambda: {"name": "demo"})
-    monkeypatch.setattr("module.Data.ProjectService.LGDatabase", lambda path: fake_db)
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.LGDatabase", lambda path: fake_db
+    )
 
     summary = service.get_project_preview(str(lg_path))
     assert summary == {"name": "demo"}
@@ -117,10 +353,10 @@ class DummyLocalizer:
     project_store_ingesting_file = "ingesting {NAME}"
     project_store_parsing_items = "parsing items"
     project_store_created = "created"
-    toast_processing = "processing"
+    task_processing = "processing"
     engine_task_rule_filter = "rule {COUNT}"
     engine_task_language_filter = "lang {COUNT}"
-    translator_mtool_optimizer_pre_log = "mtool {COUNT}"
+    translation_mtool_optimizer_pre_log = "mtool {COUNT}"
 
 
 class FakeDB:
@@ -143,8 +379,8 @@ def test_create_ingests_assets_parses_items_and_writes_meta(
     fs, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     del fs
-    monkeypatch.delenv("LINGUAGACHA_DATA_DIR", raising=False)
-    monkeypatch.setenv("LINGUAGACHA_APP_DIR", "/workspace/app")
+    BasePath.reset_for_test()
+    BasePath.initialize("/workspace/app", False)
 
     service = ProjectService()
     progress: list[tuple[int, int, str]] = []
@@ -162,12 +398,14 @@ def test_create_ingests_assets_parses_items_and_writes_meta(
     logger = DummyLogger()
 
     monkeypatch.setattr(
-        "module.Data.ProjectService.LGDatabase.create",
+        "module.Data.Project.ProjectService.LGDatabase.create",
         lambda output_path, project_name: fake_db,
     )
-    monkeypatch.setattr("module.Data.ProjectService.LogManager.get", lambda: logger)
     monkeypatch.setattr(
-        "module.Data.ProjectService.Localizer.get", lambda: DummyLocalizer()
+        "module.Data.Project.ProjectService.LogManager.get", lambda: logger
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.Localizer.get", lambda: DummyLocalizer()
     )
 
     compressed_inputs: list[bytes] = []
@@ -176,7 +414,9 @@ def test_create_ingests_assets_parses_items_and_writes_meta(
         compressed_inputs.append(data)
         return b"z" + data
 
-    monkeypatch.setattr("module.Data.ProjectService.ZstdCodec.compress", fake_compress)
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.ZstdTool.compress", fake_compress
+    )
 
     class FakeFileManager:
         def __init__(self, config) -> None:
@@ -196,21 +436,9 @@ def test_create_ingests_assets_parses_items_and_writes_meta(
                 )
             ]
 
-    monkeypatch.setattr("module.Data.ProjectService.FileManager", FakeFileManager)
-
-    prefilter_calls: list[dict[str, object]] = []
-
-    def fake_apply(**kwargs):
-        prefilter_calls.append(kwargs)
-        progress_cb = kwargs.get("progress_cb")
-        assert callable(progress_cb)
-        progress_cb(1, 1)
-        return SimpleNamespace(
-            stats=SimpleNamespace(rule_skipped=0, language_skipped=0, mtool_skipped=0),
-            prefilter_config={"demo": True},
-        )
-
-    monkeypatch.setattr("module.Data.ProjectService.ProjectPrefilter.apply", fake_apply)
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.FileManager", FakeFileManager
+    )
 
     def init_rules(db) -> list[str]:
         assert db is fake_db
@@ -228,13 +456,12 @@ def test_create_ingests_assets_parses_items_and_writes_meta(
     assert compressed_inputs == [b"hello"]
     assert fake_db.assets == [("a.txt", b"zhello", 5)]
     assert fake_db.items is not None
-    assert fake_db.meta["prefilter_config"] == {"demo": True}
     assert fake_db.meta["source_language"] != ""
     assert fake_db.meta["target_language"] != ""
+    assert fake_db.meta["skip_duplicate_source_text_enable"] is True
     extras = fake_db.meta["translation_extras"]
     assert isinstance(extras, dict)
     assert extras["total_line"] == 0
-    assert prefilter_calls != []
     assert progress != []
 
 
@@ -242,7 +469,8 @@ def test_create_skips_read_failures_and_continues(
     fs, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     del fs
-    monkeypatch.setenv("LINGUAGACHA_APP_DIR", "/workspace/app")
+    BasePath.reset_for_test()
+    BasePath.initialize("/workspace/app", False)
 
     service = ProjectService()
     src_dir = Path("/workspace/project_service/src")
@@ -259,15 +487,14 @@ def test_create_skips_read_failures_and_continues(
     logger = DummyLogger()
 
     monkeypatch.setattr(
-        "module.Data.ProjectService.LGDatabase.create",
+        "module.Data.Project.ProjectService.LGDatabase.create",
         lambda output_path, project_name: fake_db,
     )
-    monkeypatch.setattr("module.Data.ProjectService.LogManager.get", lambda: logger)
     monkeypatch.setattr(
-        "module.Data.ProjectService.Localizer.get", lambda: DummyLocalizer()
+        "module.Data.Project.ProjectService.LogManager.get", lambda: logger
     )
     monkeypatch.setattr(
-        "module.Data.ProjectService.ProjectPrefilter.apply", lambda **kwargs: None
+        "module.Data.Project.ProjectService.Localizer.get", lambda: DummyLocalizer()
     )
 
     class FakeFileManager:
@@ -279,8 +506,12 @@ def test_create_skips_read_failures_and_continues(
             del original_data
             return []
 
-    monkeypatch.setattr("module.Data.ProjectService.FileManager", FakeFileManager)
-    monkeypatch.setattr("module.Data.ProjectService.ZstdCodec.compress", lambda b: b"z")
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.FileManager", FakeFileManager
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.ZstdTool.compress", lambda b: b"z"
+    )
 
     real_open = open
 
@@ -302,7 +533,8 @@ def test_create_logs_parse_errors_but_keeps_asset(
     fs, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     del fs
-    monkeypatch.setenv("LINGUAGACHA_APP_DIR", "/workspace/app")
+    BasePath.reset_for_test()
+    BasePath.initialize("/workspace/app", False)
 
     service = ProjectService()
     src_dir = Path("/workspace/project_service/src")
@@ -316,12 +548,14 @@ def test_create_logs_parse_errors_but_keeps_asset(
     logger = DummyLogger()
 
     monkeypatch.setattr(
-        "module.Data.ProjectService.LGDatabase.create",
+        "module.Data.Project.ProjectService.LGDatabase.create",
         lambda output_path, project_name: fake_db,
     )
-    monkeypatch.setattr("module.Data.ProjectService.LogManager.get", lambda: logger)
     monkeypatch.setattr(
-        "module.Data.ProjectService.Localizer.get", lambda: DummyLocalizer()
+        "module.Data.Project.ProjectService.LogManager.get", lambda: logger
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.Localizer.get", lambda: DummyLocalizer()
     )
 
     class FakeFileManager:
@@ -333,8 +567,12 @@ def test_create_logs_parse_errors_but_keeps_asset(
             del original_data
             raise ValueError("parse failed")
 
-    monkeypatch.setattr("module.Data.ProjectService.FileManager", FakeFileManager)
-    monkeypatch.setattr("module.Data.ProjectService.ZstdCodec.compress", lambda b: b"z")
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.FileManager", FakeFileManager
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.ZstdTool.compress", lambda b: b"z"
+    )
 
     service.create(source_path=str(src_dir), output_path=str(out_path))
 
@@ -343,11 +581,12 @@ def test_create_logs_parse_errors_but_keeps_asset(
     assert any("Failed to parse asset" in msg for msg in logger.errors)
 
 
-def test_create_logs_mtool_prefilter_count_when_optimizer_enabled(
+def test_create_records_mtool_setting_without_marking_prefilter_done(
     fs, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     del fs
-    monkeypatch.setenv("LINGUAGACHA_APP_DIR", "/workspace/app")
+    BasePath.reset_for_test()
+    BasePath.initialize("/workspace/app", False)
 
     service = ProjectService()
     src_dir = Path("/workspace/project_service/src")
@@ -361,21 +600,24 @@ def test_create_logs_mtool_prefilter_count_when_optimizer_enabled(
     logger = DummyLogger()
 
     monkeypatch.setattr(
-        "module.Data.ProjectService.LGDatabase.create",
+        "module.Data.Project.ProjectService.LGDatabase.create",
         lambda output_path, project_name: fake_db,
     )
-    monkeypatch.setattr("module.Data.ProjectService.LogManager.get", lambda: logger)
     monkeypatch.setattr(
-        "module.Data.ProjectService.Localizer.get", lambda: DummyLocalizer()
+        "module.Data.Project.ProjectService.LogManager.get", lambda: logger
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.Localizer.get", lambda: DummyLocalizer()
     )
 
     class FakeConfig:
         source_language = "JA"
         target_language = "ZH"
         mtool_optimizer_enable = True
+        skip_duplicate_source_text_enable = True
 
     monkeypatch.setattr(
-        "module.Data.ProjectService.Config.load",
+        "module.Data.Project.ProjectService.Config.load",
         lambda self: FakeConfig(),
     )
 
@@ -388,17 +630,57 @@ def test_create_logs_mtool_prefilter_count_when_optimizer_enabled(
             del original_data
             return [Item.from_dict({"src": "s", "dst": "d", "row": 1})]
 
-    monkeypatch.setattr("module.Data.ProjectService.FileManager", FakeFileManager)
-    monkeypatch.setattr("module.Data.ProjectService.ZstdCodec.compress", lambda b: b)
-
     monkeypatch.setattr(
-        "module.Data.ProjectService.ProjectPrefilter.apply",
-        lambda **kwargs: SimpleNamespace(
-            stats=SimpleNamespace(rule_skipped=0, language_skipped=0, mtool_skipped=3),
-            prefilter_config={"demo": True},
-        ),
+        "module.Data.Project.ProjectService.FileManager", FakeFileManager
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.ZstdTool.compress", lambda b: b
     )
 
     service.create(source_path=str(src_dir), output_path=str(out_path))
 
-    assert any("mtool 3" in msg for msg in logger.infos)
+    assert fake_db.meta["mtool_optimizer_enable"] is True
+    assert fake_db.meta["skip_duplicate_source_text_enable"] is True
+    assert "prefilter_config" not in fake_db.meta
+    assert logger.infos == []
+
+
+def test_open_alignment_preview_requires_prefilter_when_src_dedup_missing(
+    fs, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    del fs
+    service = ProjectService()
+    lg_path = Path("/workspace/project_service/demo.lg")
+    lg_path.parent.mkdir(parents=True, exist_ok=True)
+    lg_path.write_bytes(b"db")
+    fake_db = SimpleNamespace(
+        get_all_meta=lambda: {
+            "source_language": "JA",
+            "target_language": "ZH",
+            "mtool_optimizer_enable": True,
+        }
+    )
+    config = SimpleNamespace(
+        source_language="JA",
+        target_language="ZH",
+        mtool_optimizer_enable=True,
+        skip_duplicate_source_text_enable=True,
+    )
+    monkeypatch.setattr(
+        "module.Data.Project.ProjectService.LGDatabase", lambda path: fake_db
+    )
+    monkeypatch.setattr(
+        service,
+        "build_project_draft_from_db",
+        lambda db: {"items": [], "translation_extras": {}},
+    )
+
+    preview = service.build_open_alignment_preview(str(lg_path), config)
+
+    assert preview["action"] == "prefiltered_items"
+    assert preview["changed"] == {
+        "source_language": False,
+        "target_language": False,
+        "mtool_optimizer_enable": False,
+        "skip_duplicate_source_text_enable": True,
+    }

@@ -1,11 +1,14 @@
 import threading
 from functools import lru_cache
+from typing import Any
 
 from base.Base import Base
 from base.BaseLanguage import BaseLanguage
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
+from module.Localizer.Localizer import Localizer
+from module.PromptPathResolver import PromptPathResolver
 from module.QualityRule.QualityRuleSnapshot import QualityRuleSnapshot
 from module.Utils.JSONTool import JSONTool
 
@@ -33,95 +36,96 @@ class PromptBuilder(Base):
         cls.get_prefix.cache_clear()
         cls.get_suffix.cache_clear()
         cls.get_suffix_thinking.cache_clear()
-        cls.get_suffix_glossary.cache_clear()
+        cls.get_analysis_base.cache_clear()
+        cls.get_analysis_prefix.cache_clear()
+        cls.get_analysis_thinking.cache_clear()
+        cls.get_analysis_suffix.cache_clear()
+
+    @classmethod
+    def read_prompt_text(
+        cls,
+        task_type: PromptPathResolver.TaskType,
+        language: BaseLanguage.Enum,
+        file_name: str,
+    ) -> str:
+        return PromptPathResolver.read_template(task_type, file_name, language)
 
     @classmethod
     @lru_cache(maxsize=None)
     def get_base(cls, language: BaseLanguage.Enum) -> str:
-        with open(
-            f"resource/preset/prompt/{language.lower()}/base.txt",
-            "r",
-            encoding="utf-8-sig",
-        ) as reader:
-            return reader.read().strip()
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.TRANSLATION, language, "base.txt"
+        )
 
     @classmethod
     @lru_cache(maxsize=None)
     def get_prefix(cls, language: BaseLanguage.Enum) -> str:
-        with open(
-            f"resource/preset/prompt/{language.lower()}/prefix.txt",
-            "r",
-            encoding="utf-8-sig",
-        ) as reader:
-            return reader.read().strip()
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.TRANSLATION, language, "prefix.txt"
+        )
 
     @classmethod
     @lru_cache(maxsize=None)
     def get_suffix(cls, language: BaseLanguage.Enum) -> str:
-        with open(
-            f"resource/preset/prompt/{language.lower()}/suffix.txt",
-            "r",
-            encoding="utf-8-sig",
-        ) as reader:
-            return reader.read().strip()
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.TRANSLATION, language, "suffix.txt"
+        )
 
     @classmethod
     @lru_cache(maxsize=None)
     def get_suffix_thinking(cls, language: BaseLanguage.Enum) -> str:
-        with open(
-            f"resource/preset/prompt/{language.lower()}/thinking.txt",
-            "r",
-            encoding="utf-8-sig",
-        ) as reader:
-            return reader.read().strip()
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.TRANSLATION, language, "thinking.txt"
+        )
 
     @classmethod
     @lru_cache(maxsize=None)
-    def get_suffix_glossary(cls, language: BaseLanguage.Enum) -> str:
-        with open(
-            f"resource/preset/prompt/{language.lower()}/suffix_glossary.txt",
-            "r",
-            encoding="utf-8-sig",
-        ) as reader:
-            return reader.read().strip()
+    def get_analysis_base(cls, language: BaseLanguage.Enum) -> str:
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.ANALYSIS, language, "base.txt"
+        )
 
-    # 获取自定义提示词数据
-    def get_custom_prompt_data(self, language: BaseLanguage.Enum) -> str:
-        snapshot = self.quality_snapshot
-        if snapshot is not None:
-            if language == BaseLanguage.Enum.ZH:
-                return snapshot.custom_prompt_zh
-            return snapshot.custom_prompt_en
+    @classmethod
+    @lru_cache(maxsize=None)
+    def get_analysis_prefix(cls, language: BaseLanguage.Enum) -> str:
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.ANALYSIS, language, "prefix.txt"
+        )
 
-        if language == BaseLanguage.Enum.ZH:
-            return DataManager.get().get_custom_prompt_zh()
-        return DataManager.get().get_custom_prompt_en()
+    @classmethod
+    @lru_cache(maxsize=None)
+    def get_analysis_thinking(cls, language: BaseLanguage.Enum) -> str:
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.ANALYSIS, language, "thinking.txt"
+        )
 
-    # 获取自定义提示词启用状态
-    def get_custom_prompt_enable(self, language: BaseLanguage.Enum) -> bool:
-        snapshot = self.quality_snapshot
-        if snapshot is not None:
-            if language == BaseLanguage.Enum.ZH:
-                return snapshot.custom_prompt_zh_enable
-            return snapshot.custom_prompt_en_enable
+    @classmethod
+    @lru_cache(maxsize=None)
+    def get_analysis_suffix(cls, language: BaseLanguage.Enum) -> str:
+        return cls.read_prompt_text(
+            PromptPathResolver.TaskType.ANALYSIS, language, "suffix.txt"
+        )
 
-        if language == BaseLanguage.Enum.ZH:
-            return DataManager.get().get_custom_prompt_zh_enable()
-        return DataManager.get().get_custom_prompt_en_enable()
+    def get_prompt_ui_language(self) -> BaseLanguage.Enum:
+        """提示词模板和说明文字始终跟随当前 UI 语言。"""
+        return Localizer.get_app_language()
 
-    # 获取主提示词
-    def build_main(self) -> str:
+    def is_prompt_ui_zh(self) -> bool:
+        return self.get_prompt_ui_language() == BaseLanguage.Enum.ZH
+
+    def resolve_prompt_context(
+        self,
+    ) -> tuple[BaseLanguage.Enum, str, str, str]:
+        """统一推导提示词 UI 语言与占位文本，避免运行时继续绑死 target_language。"""
         languages = BaseLanguage.get_languages()
+        prompt_language = self.get_prompt_ui_language()
 
-        # 设计约束：ALL 只用于原文语言（关闭语言过滤），译文语言必须是具体语言。
         if self.config.target_language == BaseLanguage.ALL:
             raise ValueError("target_language does not support ALL")
         if self.config.target_language not in languages:
             raise ValueError(f"invalid target_language: {self.config.target_language}")
 
-        # 判断提示词语言
-        if self.config.target_language == BaseLanguage.Enum.ZH:
-            prompt_language = BaseLanguage.Enum.ZH
+        if prompt_language == BaseLanguage.Enum.ZH:
             source_placeholder = __class__.SOURCE_PLACEHOLDER_ZH
             if self.config.source_language in languages:
                 source_language = BaseLanguage.get_name_zh(self.config.source_language)
@@ -129,7 +133,6 @@ class PromptBuilder(Base):
                 source_language = source_placeholder
             target_language = BaseLanguage.get_name_zh(self.config.target_language)
         else:
-            prompt_language = BaseLanguage.Enum.EN
             source_placeholder = __class__.SOURCE_PLACEHOLDER_EN
             if self.config.source_language in languages:
                 source_language = BaseLanguage.get_name_en(self.config.source_language)
@@ -137,58 +140,138 @@ class PromptBuilder(Base):
                 source_language = source_placeholder
             target_language = BaseLanguage.get_name_en(self.config.target_language)
 
-        # 兜底：保证替换文本非空
         if not source_language:
             source_language = source_placeholder
         if not target_language:
             raise ValueError(f"invalid target_language: {self.config.target_language}")
+
+        return prompt_language, source_placeholder, source_language, target_language
+
+    # 获取自定义提示词数据
+    def get_custom_prompt_data(self, task_type: PromptPathResolver.TaskType) -> str:
+        snapshot = self.quality_snapshot
+        if snapshot is not None:
+            if task_type == PromptPathResolver.TaskType.TRANSLATION:
+                return snapshot.translation_prompt
+            return snapshot.analysis_prompt
+
+        if task_type == PromptPathResolver.TaskType.TRANSLATION:
+            return DataManager.get().get_translation_prompt()
+        return DataManager.get().get_analysis_prompt()
+
+    # 获取自定义提示词启用状态
+    def get_custom_prompt_enable(self, task_type: PromptPathResolver.TaskType) -> bool:
+        snapshot = self.quality_snapshot
+        if snapshot is not None:
+            if task_type == PromptPathResolver.TaskType.TRANSLATION:
+                return snapshot.translation_prompt_enable
+            return snapshot.analysis_prompt_enable
+
+        if task_type == PromptPathResolver.TaskType.TRANSLATION:
+            return DataManager.get().get_translation_prompt_enable()
+        return DataManager.get().get_analysis_prompt_enable()
+
+    def resolve_translation_prompt_base(
+        self, prompt_language: BaseLanguage.Enum
+    ) -> str:
+        """翻译任务只看翻译提示词开关与正文。"""
+        if self.get_custom_prompt_enable(PromptPathResolver.TaskType.TRANSLATION):
+            return self.get_custom_prompt_data(PromptPathResolver.TaskType.TRANSLATION)
+        return __class__.get_base(prompt_language)
+
+    def resolve_analysis_prompt_base(self, prompt_language: BaseLanguage.Enum) -> str:
+        """分析任务只看分析提示词开关与正文。"""
+        if self.get_custom_prompt_enable(PromptPathResolver.TaskType.ANALYSIS):
+            return self.get_custom_prompt_data(PromptPathResolver.TaskType.ANALYSIS)
+        return __class__.get_analysis_base(prompt_language)
+
+    @staticmethod
+    def join_prompt_sections(
+        prefix: str,
+        base: str,
+        thinking: str,
+        suffix: str,
+    ) -> str:
+        """统一拼接提示词段落，保证输出块始终在末尾。"""
+        parts = ["\n".join([prefix, base])]
+        if thinking:
+            parts.append(thinking)
+        parts.append(suffix)
+        return "\n\n".join(parts)
+
+    def get_glossary_source_data(
+        self,
+    ) -> tuple[dict[str, Any], ...] | list[dict[str, Any]]:
+        """统一读取术语来源，避免快照和 DataManager 分支在多处重复。"""
+        if self.quality_snapshot is not None:
+            return self.quality_snapshot.get_glossary_entries()
+        return DataManager.get().get_glossary()
+
+    def get_matched_glossary_entries(
+        self,
+        srcs: list[str],
+    ) -> list[dict[str, Any]]:
+        """按大小写规则筛选命中的术语，供不同提示词格式复用。"""
+        full_text = "\n".join(srcs)
+        full_text_lower = full_text.lower()
+        matched_entries: list[dict[str, str]] = []
+
+        for entry in self.get_glossary_source_data():
+            src = str(entry.get("src", ""))
+            is_case_sensitive = bool(entry.get("case_sensitive", False))
+            if is_case_sensitive and src in full_text:
+                matched_entries.append(entry)
+            elif not is_case_sensitive and src.lower() in full_text_lower:
+                matched_entries.append(entry)
+
+        return matched_entries
+
+    # 获取主提示词
+    def build_main(self) -> str:
+        prompt_language, _source_placeholder, source_language, target_language = (
+            self.resolve_prompt_context()
+        )
 
         with __class__.LOCK:
             # 前缀
             prefix = __class__.get_prefix(prompt_language)
 
             # 主体
-            if (
-                prompt_language == BaseLanguage.Enum.ZH
-                and self.get_custom_prompt_enable(BaseLanguage.Enum.ZH)
-            ):
-                base = self.get_custom_prompt_data(BaseLanguage.Enum.ZH)
-            elif (
-                prompt_language == BaseLanguage.Enum.EN
-                and self.get_custom_prompt_enable(BaseLanguage.Enum.EN)
-            ):
-                base = self.get_custom_prompt_data(BaseLanguage.Enum.EN)
-            else:
-                base = __class__.get_base(prompt_language)
+            base = self.resolve_translation_prompt_base(prompt_language)
 
-            # 思考块：与输出块分离，避免自动术语表切换时互相覆盖
-            thinking = ""
-            if self.config.force_thinking_enable:
-                thinking = __class__.get_suffix_thinking(prompt_language)
+            # 强制思考
+            thinking = __class__.get_suffix_thinking(prompt_language)
 
-            # 输出块
-            if not self.config.auto_glossary_enable:
-                suffix_output = __class__.get_suffix(prompt_language)
-            else:
-                suffix_output = __class__.get_suffix_glossary(prompt_language)
+            # 后缀
+            suffix_output = __class__.get_suffix(prompt_language)
 
-        # 组装提示词：输出块必须位于末尾，避免影响 JSONLINE 规则
-        base_block = "\n".join([prefix, base])
-        parts = [base_block]
-        if thinking:
-            parts.append(thinking)
-        parts.append(suffix_output)
-        full_prompt = "\n\n".join(parts)
+        full_prompt = self.join_prompt_sections(prefix, base, thinking, suffix_output)
         full_prompt = full_prompt.replace("{source_language}", source_language)
         full_prompt = full_prompt.replace("{target_language}", target_language)
 
         return full_prompt
 
+    def build_glossary_analysis_main(self) -> str:
+        """构建术语分析任务的主提示词。"""
+        prompt_language, _source_placeholder, _source_language, target_language = (
+            self.resolve_prompt_context()
+        )
+
+        with __class__.LOCK:
+            prefix = __class__.get_analysis_prefix(prompt_language)
+            base = self.resolve_analysis_prompt_base(prompt_language)
+            thinking = __class__.get_analysis_thinking(prompt_language)
+            suffix = __class__.get_analysis_suffix(prompt_language)
+
+        # 分析任务与翻译任务保持同样的三段式结构
+        full_prompt = self.join_prompt_sections(prefix, base, thinking, suffix)
+        return full_prompt.replace("{target_language}", target_language)
+
     # 构造参考上文
     def build_preceding(self, precedings: list[Item]) -> str:
         if not precedings:
             return ""
-        elif self.config.target_language == BaseLanguage.Enum.ZH:
+        elif self.is_prompt_ui_zh():
             return (
                 "参考上文："
                 + "\n"
@@ -207,34 +290,8 @@ class PromptBuilder(Base):
 
     # 构造术语表
     def build_glossary(self, srcs: list[str]) -> str:
-        full = "\n".join(srcs)
-        full_lower = full.lower()  # 用于不区分大小写的匹配
-
-        # 筛选匹配的术语
-        glossary: list[dict[str, str]] = []
-        glossary_data = (
-            self.quality_snapshot.get_glossary_entries()
-            if self.quality_snapshot is not None
-            else DataManager.get().get_glossary()
-        )
-
-        for v in glossary_data:
-            src = v.get("src", "")
-            is_case_sensitive = v.get("case_sensitive", False)
-
-            # 根据 case_sensitive 决定匹配方式
-            if is_case_sensitive:
-                # 大小写敏感：直接使用 in
-                if src in full:
-                    glossary.append(v)
-            else:
-                # 大小写不敏感：转换为小写后匹配
-                if src.lower() in full_lower:
-                    glossary.append(v)
-
-        # 构建文本
-        result = []
-        for item in glossary:
+        result: list[str] = []
+        for item in self.get_matched_glossary_entries(srcs):
             src = item.get("src", "")
             dst = item.get("dst", "")
             info = item.get("info", "")
@@ -248,7 +305,7 @@ class PromptBuilder(Base):
         if not result:
             return ""
 
-        if self.config.target_language == BaseLanguage.Enum.ZH:
+        if self.is_prompt_ui_zh():
             return (
                 "术语表 <术语原文> -> <术语译文> #<术语信息>:"
                 + "\n"
@@ -263,34 +320,8 @@ class PromptBuilder(Base):
 
     # 构造术语表
     def build_glossary_sakura(self, srcs: list[str]) -> str:
-        full = "\n".join(srcs)
-        full_lower = full.lower()  # 用于不区分大小写的匹配
-
-        # 筛选匹配的术语
-        glossary: list[dict[str, str]] = []
-        glossary_data = (
-            self.quality_snapshot.get_glossary_entries()
-            if self.quality_snapshot is not None
-            else DataManager.get().get_glossary()
-        )
-
-        for v in glossary_data:
-            src = v.get("src", "")
-            is_case_sensitive = v.get("case_sensitive", False)
-
-            # 根据 case_sensitive 决定匹配方式
-            if is_case_sensitive:
-                # 大小写敏感：直接使用 in
-                if src in full:
-                    glossary.append(v)
-            else:
-                # 大小写不敏感：转换为小写后匹配
-                if src.lower() in full_lower:
-                    glossary.append(v)
-
-        # 构建文本
-        result = []
-        for item in glossary:
+        result: list[str] = []
+        for item in self.get_matched_glossary_entries(srcs):
             src = item.get("src", "")
             dst = item.get("dst", "")
             info = item.get("info", "")
@@ -326,7 +357,7 @@ class PromptBuilder(Base):
             return ""
 
         # 判断提示词语言
-        if self.config.target_language == BaseLanguage.Enum.ZH:
+        if self.is_prompt_ui_zh():
             prefix: str = "控制字符示例："
         else:
             prefix: str = "Control Characters Samples:"
@@ -339,10 +370,21 @@ class PromptBuilder(Base):
             JSONTool.dumps({str(i): line}) for i, line in enumerate(srcs)
         )
 
-        if self.config.target_language == BaseLanguage.Enum.ZH:
+        if self.is_prompt_ui_zh():
             return "输入：\n" + "```jsonline\n" + f"{inputs}\n" + "```"
         else:
             return "Input:\n" + "```jsonline\n" + f"{inputs}\n" + "```"
+
+    def build_analysis_inputs(self, srcs: list[str]) -> str:
+        """分析任务只需要纯文本原文，避免额外结构干扰模型抽取术语。"""
+        if not srcs:
+            return ""
+
+        inputs = "\n".join(srcs)
+        if self.is_prompt_ui_zh():
+            return "输入：\n" + inputs
+        else:
+            return "Input:\n" + inputs
 
     # 生成提示词
     def generate_prompt(
@@ -436,4 +478,25 @@ class PromptBuilder(Base):
             }
         )
 
+        return messages, console_log
+
+    def generate_glossary_prompt(
+        self,
+        srcs: list[str],
+    ) -> tuple[list[dict[str, str]], list[str]]:
+        """生成术语分析任务提示词。
+
+        为什么单独建方法：
+        - 分析任务使用独立提示词模板，不应混入翻译专用的控制符说明
+        - 分析任务只看当前原文，避免上文和已有术语影响抽取结果
+        """
+
+        messages: list[dict[str, str]] = []
+        console_log: list[str] = []
+
+        instruction_text = self.build_glossary_analysis_main()
+        inputs_text = self.build_analysis_inputs(srcs)
+
+        messages.append({"role": "system", "content": instruction_text})
+        messages.append({"role": "user", "content": inputs_text})
         return messages, console_log

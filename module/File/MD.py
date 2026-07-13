@@ -3,7 +3,7 @@ import re
 
 from base.Base import Base
 from base.BaseLanguage import BaseLanguage
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.Text.TextHelper import TextHelper
@@ -75,7 +75,7 @@ class MD(Base):
                             "file_type": Item.FileType.MD,
                             "file_path": rel_path,
                             "text_type": Item.TextType.MD,
-                            "status": Base.ProjectStatus.EXCLUDED,
+                            "status": Base.ItemStatus.EXCLUDED,
                         }
                     )
                 )

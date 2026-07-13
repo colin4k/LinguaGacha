@@ -2,12 +2,35 @@ from collections.abc import Generator
 import contextlib
 from pathlib import Path
 import sqlite3
+import shutil
 from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
 
-from module.Data.LGDatabase import LGDatabase
+import module.Data.Storage.LGDatabase as lg_database_module
+from module.Data.Storage.LGDatabase import LGDatabase
+from module.Utils.JSONTool import JSONTool
+
+
+class FakeLogManager:
+    def __init__(self) -> None:
+        self.warning_messages: list[str] = []
+        self.warning_exceptions: list[BaseException | None] = []
+
+    def warning(self, msg: str, e: BaseException | None = None) -> None:
+        self.warning_messages.append(msg)
+        self.warning_exceptions.append(e)
+
+
+@pytest.fixture(autouse=True)
+def install_fake_log_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[FakeLogManager, None, None]:
+    # 这个文件会主动覆盖坏数据与兼容路径，测试时不需要真实 Rich 日志刷到控制台。
+    logger = FakeLogManager()
+    monkeypatch.setattr(lg_database_module.LogManager, "get", lambda: logger)
+    yield logger
 
 
 @pytest.fixture
@@ -18,6 +41,24 @@ def database() -> Generator[LGDatabase, None, None]:
         yield db
     finally:
         db.close()
+
+
+@contextlib.contextmanager
+def real_db_path(fs, case_name: str) -> Generator[Path, None, None]:
+    """为需要真实 SQLite 文件的场景提供受控路径。"""
+
+    fs.pause()
+    root_path = Path.cwd() / ".tmp_pytest_lg_database"
+    case_path = root_path / case_name
+    db_path = case_path / f"{case_name}.lg"
+    try:
+        case_path.mkdir(parents=True, exist_ok=True)
+        yield db_path
+    finally:
+        shutil.rmtree(case_path, ignore_errors=True)
+        with contextlib.suppress(OSError):
+            root_path.rmdir()
+        fs.resume()
 
 
 def test_memory_mode_supports_open_close_and_crud() -> None:
@@ -31,7 +72,7 @@ def test_memory_mode_supports_open_close_and_crud() -> None:
     finally:
         db.close()
 
-    assert db.is_open() is False
+    assert db.keep_alive_conn is None
 
 
 def test_meta_roundtrip_and_default(database: LGDatabase) -> None:
@@ -61,6 +102,22 @@ def test_set_item_insert_update_and_get_all_items(database: LGDatabase) -> None:
     assert items == [{"id": item_id, "src": "hello", "dst": "您好"}]
 
 
+def test_get_items_by_ids_returns_existing_items_in_requested_order(
+    database: LGDatabase,
+) -> None:
+    first_id = database.set_item({"src": "first", "dst": "一"})
+    second_id = database.set_item({"src": "second", "dst": "二"})
+    third_id = database.set_item({"src": "third", "dst": "三"})
+
+    items = database.get_items_by_ids([third_id, 404, first_id, third_id])
+
+    assert items == [
+        {"id": third_id, "src": "third", "dst": "三"},
+        {"id": first_id, "src": "first", "dst": "一"},
+    ]
+    assert second_id not in [item["id"] for item in items]
+
+
 def test_set_items_replaces_all_and_preserves_given_ids(database: LGDatabase) -> None:
     database.set_item({"src": "old"})
 
@@ -76,6 +133,23 @@ def test_set_items_replaces_all_and_preserves_given_ids(database: LGDatabase) ->
     assert items[0] == {"id": 7, "src": "first", "dst": "一"}
     assert items[1]["src"] == "second"
     assert items[1]["dst"] == "二"
+
+
+def test_preview_replace_all_item_ids_follows_sequence_and_explicit_ids(
+    database: LGDatabase,
+) -> None:
+    database.set_item({"src": "old-a"})
+    database.set_item({"src": "old-b"})
+
+    preview_ids = database.preview_replace_all_item_ids(
+        [
+            {"src": "first"},
+            {"id": 9, "src": "second"},
+            {"src": "third"},
+        ]
+    )
+
+    assert preview_ids == [3, 9, 10]
 
 
 def test_update_batch_updates_items_rules_and_meta(database: LGDatabase) -> None:
@@ -125,7 +199,7 @@ def test_get_rules_logs_and_returns_empty_when_first_row_is_invalid_json(
     database: LGDatabase, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     logger = MagicMock()
-    monkeypatch.setattr("module.Data.LGDatabase.LogManager.get", lambda: logger)
+    monkeypatch.setattr("module.Data.Storage.LGDatabase.LogManager.get", lambda: logger)
 
     with database.connection() as conn:
         conn.execute(
@@ -142,13 +216,16 @@ def test_get_rules_logs_and_returns_empty_when_first_row_is_invalid_json(
     logger.warning.assert_called_once()
 
 
-def test_get_project_summary_uses_translation_extras(database: LGDatabase) -> None:
+def test_get_project_summary_uses_item_status_for_translation_stats(
+    database: LGDatabase,
+) -> None:
     database.set_meta("name", "MyProject")
     database.set_meta("source_language", "JP")
     database.set_meta("target_language", "ZH")
-    database.set_meta("translation_extras", {"line": 4, "total_line": 5})
-    database.set_item({"src": "1"})
-    database.set_item({"src": "2"})
+    database.set_item({"src": "1", "status": "PROCESSED"})
+    database.set_item({"src": "2", "status": "ERROR"})
+    database.set_item({"src": "3", "status": "NONE"})
+    database.set_item({"src": "4", "status": "RULE_SKIPPED"})
     database.add_asset("a.txt", b"1", 1)
 
     summary = database.get_project_summary()
@@ -157,9 +234,14 @@ def test_get_project_summary_uses_translation_extras(database: LGDatabase) -> No
     assert summary["source_language"] == "JP"
     assert summary["target_language"] == "ZH"
     assert summary["file_count"] == 1
-    assert summary["translated_items"] == 4
-    assert summary["total_items"] == 5
-    assert summary["progress"] == 0.8
+    assert summary["translation_stats"] == {
+        "total_items": 4,
+        "completed_count": 1,
+        "failed_count": 1,
+        "pending_count": 1,
+        "skipped_count": 1,
+        "completion_percent": 50.0,
+    }
 
 
 def test_get_project_summary_falls_back_to_item_count_when_extras_missing_or_invalid(
@@ -170,22 +252,27 @@ def test_get_project_summary_falls_back_to_item_count_when_extras_missing_or_inv
     database.set_item({"src": "2"})
 
     summary = database.get_project_summary()
-    assert summary["total_items"] == 2
-    assert summary["translated_items"] == 0
-    assert summary["progress"] == 0.0
+    assert summary["translation_stats"] == {
+        "total_items": 2,
+        "completed_count": 0,
+        "failed_count": 0,
+        "pending_count": 2,
+        "skipped_count": 0,
+        "completion_percent": 0.0,
+    }
 
 
-def test_get_project_summary_uses_item_count_when_total_line_is_zero(
+def test_get_project_summary_counts_skipped_items_as_complete_for_progress(
     database: LGDatabase,
 ) -> None:
-    database.set_meta("translation_extras", {"line": 4, "total_line": 0})
-    for i in range(10):
-        database.set_item({"src": str(i)})
+    database.set_item({"src": "1", "status": "PROCESSED"})
+    database.set_item({"src": "2", "status": "RULE_SKIPPED"})
+    database.set_item({"src": "3", "status": "LANGUAGE_SKIPPED"})
+    database.set_item({"src": "4", "status": "NONE"})
 
     summary = database.get_project_summary()
-    assert summary["translated_items"] == 4
-    assert summary["total_items"] == 10
-    assert summary["progress"] == 0.4
+    assert summary["translation_stats"]["skipped_count"] == 2
+    assert summary["translation_stats"]["completion_percent"] == 75.0
 
 
 def test_get_project_summary_returns_zero_progress_when_no_items(
@@ -194,19 +281,26 @@ def test_get_project_summary_returns_zero_progress_when_no_items(
     database.set_meta("translation_extras", {"line": 1, "total_line": 0})
 
     summary = database.get_project_summary()
-    assert summary["total_items"] == 0
-    assert summary["progress"] == 0.0
+    assert summary["translation_stats"] == {
+        "total_items": 0,
+        "completed_count": 0,
+        "failed_count": 0,
+        "pending_count": 0,
+        "skipped_count": 0,
+        "completion_percent": 0.0,
+    }
 
 
-def test_create_creates_persistent_db_file_and_sets_base_meta(tmp_path: Path) -> None:
-    db_path = tmp_path / "demo.lg"
-    db = LGDatabase.create(str(db_path), "Demo")
+def test_create_creates_persistent_db_file_and_sets_base_meta(fs) -> None:
+    with real_db_path(fs, "create") as db_path:
+        db = LGDatabase.create(str(db_path), "Demo")
 
-    assert db.is_open() is False
-    assert db.get_meta("name") == "Demo"
-    assert db.get_meta("schema_version") == LGDatabase.SCHEMA_VERSION
-    assert isinstance(db.get_meta("created_at"), str)
-    assert isinstance(db.get_meta("updated_at"), str)
+        assert db.keep_alive_conn is None
+        assert db_path.exists() is True
+        assert db.get_meta("name") == "Demo"
+        assert db.get_meta("schema_version") == LGDatabase.SCHEMA_VERSION
+        assert isinstance(db.get_meta("created_at"), str)
+        assert isinstance(db.get_meta("updated_at"), str)
 
 
 def test_add_asset_and_get_asset_roundtrip(database: LGDatabase) -> None:
@@ -217,18 +311,27 @@ def test_add_asset_and_get_asset_roundtrip(database: LGDatabase) -> None:
     assert database.get_asset("missing.bin") is None
 
 
-def test_get_all_asset_paths_and_count_preserve_insert_order(
+def test_get_all_asset_paths_preserves_insert_order(
     database: LGDatabase,
 ) -> None:
     database.add_asset("a.txt", b"1", 1)
     database.add_asset("b.txt", b"2", 1)
 
     assert database.get_all_asset_paths() == ["a.txt", "b.txt"]
-    assert database.get_asset_count() == 2
 
     # 更新路径不应改变展示顺序（按 id 排序）。
     database.update_asset_path("a.txt", "c.txt")
     assert database.get_all_asset_paths() == ["c.txt", "b.txt"]
+
+
+def test_add_asset_appends_after_reordered_sort_order(database: LGDatabase) -> None:
+    database.add_asset("a.txt", b"1", 1)
+    database.add_asset("b.txt", b"2", 1)
+    database.update_asset_sort_orders(["b.txt", "a.txt"])
+
+    database.add_asset("c.txt", b"3", 1)
+
+    assert database.get_all_asset_paths() == ["b.txt", "a.txt", "c.txt"]
 
 
 def test_connection_reuses_keep_alive_connection(database: LGDatabase) -> None:
@@ -247,40 +350,191 @@ def test_ensure_schema_noops_when_no_connection_available() -> None:
     db.ensure_schema()
 
 
-def test_short_connection_context_creates_schema_and_closes(tmp_path: Path) -> None:
-    db_path = tmp_path / "short_conn.lg"
-    db = LGDatabase(str(db_path))
+def test_short_connection_context_creates_schema_and_closes(fs) -> None:
+    with real_db_path(fs, "short_connection") as db_path:
+        db = LGDatabase(str(db_path))
 
-    with db.connection() as conn:
-        names = {
-            row[0]
-            for row in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
-        assert {"meta", "assets", "items", "rules"}.issubset(names)
+        with db.connection() as conn:
+            names = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            assert {"meta", "assets", "items", "rules"}.issubset(names)
 
-    with pytest.raises(sqlite3.ProgrammingError):
-        conn.execute("SELECT 1")
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+
+
+def test_short_connections_confirm_schema_once_per_file_instance(
+    fs,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with real_db_path(fs, "short_connection_schema_once") as db_path:
+        db = LGDatabase(str(db_path))
+        original_ensure_schema = db.ensure_schema
+        ensure_schema_calls = 0
+
+        def spy_ensure_schema(conn: sqlite3.Connection | None = None) -> None:
+            nonlocal ensure_schema_calls
+            ensure_schema_calls += 1
+            original_ensure_schema(conn)
+
+        monkeypatch.setattr(db, "ensure_schema", spy_ensure_schema)
+
+        with db.connection() as first_conn:
+            assert first_conn.execute("SELECT COUNT(*) FROM meta").fetchone()[0] == 0
+        with db.connection() as second_conn:
+            assert second_conn.execute("SELECT COUNT(*) FROM meta").fetchone()[0] == 0
+
+        assert ensure_schema_calls == 1
+
+
+def test_open_then_connection_reuses_schema_confirmation(
+    fs,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with real_db_path(fs, "open_schema_once") as db_path:
+        db = LGDatabase(str(db_path))
+        original_ensure_schema = db.ensure_schema
+        ensure_schema_calls = 0
+
+        def spy_ensure_schema(conn: sqlite3.Connection | None = None) -> None:
+            nonlocal ensure_schema_calls
+            ensure_schema_calls += 1
+            original_ensure_schema(conn)
+
+        monkeypatch.setattr(db, "ensure_schema", spy_ensure_schema)
+
+        db.open()
+        try:
+            with db.connection() as conn:
+                assert conn.execute("SELECT COUNT(*) FROM meta").fetchone()[0] == 0
+        finally:
+            db.close()
+
+        assert ensure_schema_calls == 1
+
+
+def test_ensure_schema_backfills_asset_sort_order_for_legacy_db(fs) -> None:
+    with real_db_path(fs, "legacy_sort_order") as db_path:
+        if db_path.exists():
+            db_path.unlink()
+        with contextlib.closing(sqlite3.connect(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute(
+                """
+                CREATE TABLE assets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    path TEXT NOT NULL UNIQUE,
+                    data BLOB NOT NULL,
+                    original_size INTEGER NOT NULL,
+                    compressed_size INTEGER NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO assets (path, data, original_size, compressed_size)
+                VALUES ('b.txt', X'31', 1, 1)
+                """
+            )
+            conn.execute(
+                """
+                INSERT INTO assets (path, data, original_size, compressed_size)
+                VALUES ('a.txt', X'32', 1, 1)
+                """
+            )
+            conn.commit()
+
+        db = LGDatabase(str(db_path))
+        db.open()
+        try:
+            with db.connection() as conn:
+                rows = conn.execute(
+                    "SELECT path, sort_order FROM assets ORDER BY sort_order ASC, id ASC"
+                ).fetchall()
+            assert [(row["path"], row["sort_order"]) for row in rows] == [
+                ("b.txt", 0),
+                ("a.txt", 1),
+            ]
+        finally:
+            db.close()
+
+
+def test_ensure_schema_migrates_legacy_item_status_for_legacy_db(fs) -> None:
+    with real_db_path(fs, "legacy_item_status") as db_path:
+        if db_path.exists():
+            db_path.unlink()
+        with contextlib.closing(sqlite3.connect(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            conn.execute(
+                """
+                CREATE TABLE meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    data TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "INSERT INTO items (data) VALUES (?)",
+                (JSONTool.dumps({"src": "old", "status": "PROCESSED_IN_PAST"}),),
+            )
+            conn.execute(
+                "INSERT INTO items (data) VALUES (?)",
+                (JSONTool.dumps({"src": "running", "status": "PROCESSING"}),),
+            )
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?)",
+                ("project_status", JSONTool.dumps("PROCESSED_IN_PAST")),
+            )
+            conn.commit()
+
+        db = LGDatabase(str(db_path))
+        db.open()
+        try:
+            assert db.get_all_items() == [
+                {"id": 1, "src": "old", "status": "PROCESSED"},
+                {"id": 2, "src": "running", "status": "NONE"},
+            ]
+            assert db.get_meta("project_status") == "PROCESSED_IN_PAST"
+        finally:
+            db.close()
 
 
 def test_get_and_set_rule_text_roundtrip(database: LGDatabase) -> None:
-    assert database.get_rule_text(LGDatabase.RuleType.CUSTOM_PROMPT_ZH) == ""
+    assert database.get_rule_text(LGDatabase.RuleType.TRANSLATION_PROMPT) == ""
 
-    database.set_rule_text(LGDatabase.RuleType.CUSTOM_PROMPT_ZH, "prompt")
+    database.set_rule_text(LGDatabase.RuleType.TRANSLATION_PROMPT, "prompt")
 
-    assert database.get_rule_text(LGDatabase.RuleType.CUSTOM_PROMPT_ZH) == "prompt"
+    assert database.get_rule_text(LGDatabase.RuleType.TRANSLATION_PROMPT) == "prompt"
 
 
-def test_get_items_by_file_path_filters_by_json_extract(database: LGDatabase) -> None:
-    id_a1 = database.set_item({"src": "a1", "file_path": "a.txt"})
-    database.set_item({"src": "b1", "file_path": "b.txt"})
-    id_a2 = database.set_item({"src": "a2", "file_path": "a.txt"})
+def test_get_rule_text_by_name_supports_legacy_string_payload(
+    database: LGDatabase,
+) -> None:
+    with database.connection() as conn:
+        conn.execute(
+            "INSERT INTO rules (type, data) VALUES (?, ?)",
+            (LGDatabase.LEGACY_TRANSLATION_PROMPT_EN_RULE_TYPE, '"Old English prompt"'),
+        )
+        conn.commit()
 
-    items = database.get_items_by_file_path("a.txt")
-
-    assert [item["id"] for item in items] == [id_a1, id_a2]
-    assert [item["src"] for item in items] == ["a1", "a2"]
+    assert (
+        database.get_rule_text_by_name(
+            LGDatabase.LEGACY_TRANSLATION_PROMPT_EN_RULE_TYPE
+        )
+        == "Old English prompt"
+    )
 
 
 class FakeConn:
@@ -325,26 +579,6 @@ class JsonExtractErrorConn:
         return
 
 
-def test_get_items_by_file_path_falls_back_when_json_extract_missing(
-    database: LGDatabase, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    id_a1 = database.set_item({"src": "a1", "file_path": "a.txt"})
-    database.set_item({"src": "b1", "file_path": "b.txt"})
-    id_a2 = database.set_item({"src": "a2", "file_path": "a.txt"})
-    assert database.keep_alive_conn is not None
-
-    fake = FakeConn(database.keep_alive_conn)
-
-    @contextlib.contextmanager
-    def fake_connection():
-        yield fake
-
-    monkeypatch.setattr(database, "connection", fake_connection)
-
-    items = database.get_items_by_file_path("a.txt")
-    assert [item["id"] for item in items] == [id_a1, id_a2]
-
-
 def test_delete_items_by_file_path_removes_matching_items(database: LGDatabase) -> None:
     database.set_item({"src": "a1", "file_path": "a.txt"})
     id_b1 = database.set_item({"src": "b1", "file_path": "b.txt"})
@@ -354,10 +588,6 @@ def test_delete_items_by_file_path_removes_matching_items(database: LGDatabase) 
 
     assert deleted == 2
     assert database.get_all_items() == [
-        {"id": id_b1, "src": "b1", "file_path": "b.txt"}
-    ]
-    assert database.get_items_by_file_path("a.txt") == []
-    assert database.get_items_by_file_path("b.txt") == [
         {"id": id_b1, "src": "b1", "file_path": "b.txt"}
     ]
 
@@ -434,45 +664,28 @@ def test_update_asset_replaces_data(database: LGDatabase) -> None:
     assert database.get_asset("a.bin") == b"v2"
 
 
-def test_update_asset_path_update_asset_delete_asset_and_insert_items_support_conn_param(
-    tmp_path: Path,
+def test_update_asset_path_update_asset_and_delete_asset_support_conn_param(
+    fs,
 ) -> None:
-    db_path = tmp_path / "conn_param.lg"
-    db = LGDatabase(str(db_path))
-    db.add_asset("a.bin", b"v1", 2)
+    with real_db_path(fs, "conn_param") as db_path:
+        db = LGDatabase(str(db_path))
+        try:
+            db.add_asset("a.bin", b"v1", 2)
 
-    with db.connection() as conn:
-        db.update_asset("a.bin", b"v2", 2, conn=conn)
-        conn.commit()
-        assert db.get_asset("a.bin") == b"v2"
+            with db.connection() as conn:
+                db.update_asset("a.bin", b"v2", 2, conn=conn)
+                conn.commit()
+                assert db.get_asset("a.bin") == b"v2"
 
-        assert db.update_asset_path("a.bin", "b.bin", conn=conn) == 1
-        conn.commit()
-        assert db.get_asset("b.bin") == b"v2"
+                assert db.update_asset_path("a.bin", "b.bin", conn=conn) == 1
+                conn.commit()
+                assert db.get_asset("b.bin") == b"v2"
 
-        ids = db.insert_items([{"src": "A"}, {"src": "B"}], conn=conn)
-        conn.commit()
-        assert ids and all(isinstance(v, int) for v in ids)
-
-        db.delete_asset("b.bin", conn=conn)
-        conn.commit()
-        assert db.get_asset("b.bin") is None
-
-
-def test_insert_items_appends_without_clearing(database: LGDatabase) -> None:
-    id_old = database.set_item({"src": "old", "file_path": "old.txt"})
-
-    ids_new = database.insert_items(
-        [
-            {"src": "n1", "file_path": "new.txt"},
-            {"src": "n2", "file_path": "new.txt"},
-        ]
-    )
-
-    assert len(ids_new) == 2
-    items = database.get_all_items()
-    assert [item["id"] for item in items] == [id_old, *ids_new]
-    assert [item["src"] for item in items] == ["old", "n1", "n2"]
+                db.delete_asset("b.bin", conn=conn)
+                conn.commit()
+                assert db.get_asset("b.bin") is None
+        finally:
+            db.close()
 
 
 def test_asset_path_exists_returns_correct_bool(database: LGDatabase) -> None:
@@ -513,45 +726,6 @@ def test_set_item_raises_when_insert_cursor_has_no_lastrowid(
         database.set_item({"src": "x"})
 
 
-def test_insert_items_raises_when_conn_cursor_has_no_lastrowid() -> None:
-    db = LGDatabase(":memory:")
-
-    with pytest.raises(ValueError, match="Failed to get lastrowid"):
-        db.insert_items(
-            [{"src": "x"}], conn=cast(sqlite3.Connection, NoLastRowIdConn())
-        )
-
-
-def test_insert_items_raises_when_local_cursor_has_no_lastrowid(
-    database: LGDatabase, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fake_conn = NoLastRowIdConn()
-
-    @contextlib.contextmanager
-    def fake_connection() -> Generator[NoLastRowIdConn, None, None]:
-        yield fake_conn
-
-    monkeypatch.setattr(database, "connection", fake_connection)
-
-    with pytest.raises(ValueError, match="Failed to get lastrowid"):
-        database.insert_items([{"src": "x"}])
-
-
-def test_get_items_by_file_path_reraises_non_json_extract_operational_error(
-    database: LGDatabase, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    fake_conn = JsonExtractErrorConn("database is locked")
-
-    @contextlib.contextmanager
-    def fake_connection() -> Generator[JsonExtractErrorConn, None, None]:
-        yield fake_conn
-
-    monkeypatch.setattr(database, "connection", fake_connection)
-
-    with pytest.raises(sqlite3.OperationalError, match="database is locked"):
-        database.get_items_by_file_path("a.txt")
-
-
 def test_delete_items_by_file_path_with_conn_uses_json_extract_delete(
     database: LGDatabase,
 ) -> None:
@@ -563,7 +737,7 @@ def test_delete_items_by_file_path_with_conn_uses_json_extract_delete(
         conn.commit()
 
     assert deleted == 1
-    assert database.get_items_by_file_path("a.txt") == []
+    assert database.get_all_items() == [{"id": 2, "src": "b1", "file_path": "b.txt"}]
 
 
 def test_delete_items_by_file_path_with_conn_reraises_non_json_extract_error() -> None:
@@ -661,7 +835,7 @@ def test_get_rules_handles_list_row_and_multiple_decode_errors(
     database: LGDatabase, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     logger = MagicMock()
-    monkeypatch.setattr("module.Data.LGDatabase.LogManager.get", lambda: logger)
+    monkeypatch.setattr("module.Data.Storage.LGDatabase.LogManager.get", lambda: logger)
 
     with database.connection() as conn:
         conn.execute(

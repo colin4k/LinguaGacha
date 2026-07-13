@@ -1,23 +1,29 @@
 import dataclasses
 import os
+import shutil
 import threading
 from enum import StrEnum
 from typing import Any
 from typing import ClassVar
 from typing import Self
 
+from base.BasePath import BasePath
 from base.BaseLanguage import BaseLanguage
 from base.LogManager import LogManager
 from module.Localizer.Localizer import Localizer
-from module.ModelManager import ModelManager
+from module.Model.Manager import ModelManager
 from module.Utils.JSONTool import JSONTool
 
 
 @dataclasses.dataclass
 class Config:
-    class Theme(StrEnum):
-        DARK = "DARK"
-        LIGHT = "LIGHT"
+    CONFIG_FILE_NAME: ClassVar[str] = "config.json"
+    MODEL_TYPE_SORT_ORDER: ClassVar[dict[str, int]] = {
+        "PRESET": 0,
+        "CUSTOM_GOOGLE": 1,
+        "CUSTOM_OPENAI": 2,
+        "CUSTOM_ANTHROPIC": 3,
+    }
 
     class ProjectSaveMode(StrEnum):
         MANUAL = "MANUAL"
@@ -25,18 +31,11 @@ class Config:
         FIXED = "FIXED"
 
     # Application
-    theme: str = Theme.LIGHT
     app_language: BaseLanguage.Enum = BaseLanguage.Enum.ZH
 
     # ModelPage - 模型管理系统
     activate_model_id: str = ""
     models: list[dict[str, Any]] | None = None
-
-    # AppSettingsPage
-    expert_mode: bool = False
-    proxy_url: str = ""
-    proxy_enable: bool = False
-    scale_factor: str = ""
 
     # BasicSettingsPage
     # 配置文件持久化为字符串，因此运行时也允许 str（例如 target_language="ZH"）。
@@ -51,7 +50,6 @@ class Config:
     # ExpertSettingsPage
     preceding_lines_threshold: int = 0
     clean_ruby: bool = False
-    deduplication_in_trans: bool = True
     deduplication_in_bilingual: bool = True
     check_kana_residue: bool = True
     check_hangeul_residue: bool = True
@@ -60,9 +58,8 @@ class Config:
     auto_process_prefix_suffix_preserved_text: bool = True
 
     # LaboratoryPage
-    auto_glossary_enable: bool = False
-    force_thinking_enable: bool = True
-    mtool_optimizer_enable: bool = False
+    mtool_optimizer_enable: bool = True
+    skip_duplicate_source_text_enable: bool = True
 
     # GlossaryPage
     glossary_default_preset: str = ""
@@ -75,8 +72,8 @@ class Config:
     post_translation_replacement_default_preset: str = ""
 
     # CustomPromptPage
-    custom_prompt_zh_default_preset: str = ""
-    custom_prompt_en_default_preset: str = ""
+    translation_custom_prompt_default_preset: str = ""
+    analysis_custom_prompt_default_preset: str = ""
 
     # 最近打开的工程列表 [{"path": "...", "name": "...", "updated_at": "..."}]
     recent_projects: list[dict[str, str]] = dataclasses.field(default_factory=list)
@@ -84,20 +81,89 @@ class Config:
     # 类属性
     CONFIG_LOCK: ClassVar[threading.Lock] = threading.Lock()
 
-    @staticmethod
-    def get_config_path() -> str:
-        """根据环境获取配置文件路径。"""
-        data_dir = os.environ.get("LINGUAGACHA_DATA_DIR")
-        app_dir = os.environ.get("LINGUAGACHA_APP_DIR")
-        # 便携式环境（AppImage, macOS .app）使用 data_dir/config.json
-        if data_dir and app_dir and data_dir != app_dir:
-            return os.path.join(data_dir, "config.json")
-        # 默认：使用应用目录下的 resource/config.json
-        return os.path.join(app_dir or ".", "resource", "config.json")
+    @classmethod
+    def get_default_path(cls) -> str:
+        """统一返回默认配置文件路径，固定派生自 DATA_ROOT/userdata。"""
+
+        return os.path.join(BasePath.get_user_data_root_dir(), cls.CONFIG_FILE_NAME)
+
+    @classmethod
+    def resolve_path(cls, path: str | None) -> str:
+        """把外部可选路径统一收口，减少 load/save 各自处理默认值。"""
+
+        if path is None:
+            return cls.get_default_path()
+        return path
+
+    @classmethod
+    def build_recent_project_display_name(cls, path: str) -> str:
+        """统一从工程文件路径推导最近项目标题，避免混入源目录或预览名。"""
+
+        file_name = os.path.basename(path)
+        stem, _ = os.path.splitext(file_name)
+
+        if stem:
+            return stem
+        else:
+            return file_name
+
+    @classmethod
+    def get_legacy_default_paths(cls) -> list[str]:
+        """收口旧版默认配置位置，便于启动时做一次性迁移。"""
+
+        data_root = BasePath.get_data_root()
+        app_root = BasePath.get_app_root()
+
+        # 迁移优先级必须与 main 分支旧默认读取规则一致：
+        # 1. 便携/只读安装场景优先沿用 DATA_ROOT/config.json。
+        # 2. 普通桌面场景优先沿用 resource/config.json。
+        # 3. APP_ROOT/config.json 仅作为更早历史残留的兜底来源。
+        if os.path.normcase(os.path.normpath(data_root)) != os.path.normcase(
+            os.path.normpath(app_root)
+        ):
+            candidate_paths: list[str] = [
+                os.path.join(data_root, cls.CONFIG_FILE_NAME),
+                os.path.join(BasePath.get_resource_dir(), cls.CONFIG_FILE_NAME),
+                os.path.join(app_root, cls.CONFIG_FILE_NAME),
+            ]
+        else:
+            candidate_paths = [
+                os.path.join(BasePath.get_resource_dir(), cls.CONFIG_FILE_NAME),
+                os.path.join(data_root, cls.CONFIG_FILE_NAME),
+                os.path.join(app_root, cls.CONFIG_FILE_NAME),
+            ]
+
+        unique_paths: list[str] = []
+        seen_paths: set[str] = set()
+
+        for path in candidate_paths:
+            normalized_path = os.path.normcase(os.path.normpath(path))
+            if normalized_path in seen_paths:
+                continue
+
+            seen_paths.add(normalized_path)
+            unique_paths.append(path)
+
+        return unique_paths
+
+    @classmethod
+    def migrate_default_config_if_needed(cls, target_path: str) -> None:
+        """把旧默认位置的配置复制到 DATA_ROOT/userdata，后续优先读取新位置。"""
+
+        if os.path.isfile(target_path):
+            return
+
+        target_dir = os.path.dirname(target_path)
+        os.makedirs(target_dir, exist_ok=True)
+        for source_path in cls.get_legacy_default_paths():
+            if not os.path.isfile(source_path):
+                continue
+
+            shutil.copyfile(source_path, target_path)
+            return
 
     def load(self, path: str | None = None) -> Self:
-        if path is None:
-            path = __class__.get_config_path()
+        path = __class__.resolve_path(path)
 
         with __class__.CONFIG_LOCK:
             try:
@@ -113,24 +179,19 @@ class Config:
 
         return self
 
-    def save(self, path: str | None = None) -> Self:
-        if path is None:
-            path = __class__.get_config_path()
+    def save(
+        self,
+        path: str | None = None,
+        *,
+        raise_on_error: bool = False,
+    ) -> Self:
+        path = __class__.resolve_path(path)
 
         # 按分类排序: 预设 - Google - OpenAI - Claude
         if self.models:
 
             def get_sort_key(model: dict[str, Any]) -> int:
-                type_str = model.get("type", "")
-                if type_str == "PRESET":
-                    return 0
-                elif type_str == "CUSTOM_GOOGLE":
-                    return 1
-                elif type_str == "CUSTOM_OPENAI":
-                    return 2
-                elif type_str == "CUSTOM_ANTHROPIC":
-                    return 3
-                return 99
+                return __class__.MODEL_TYPE_SORT_ORDER.get(model.get("type", ""), 99)
 
             self.models.sort(key=get_sort_key)
 
@@ -141,28 +202,15 @@ class Config:
                     writer.write(JSONTool.dumps(dataclasses.asdict(self), indent=4))
             except Exception as e:
                 LogManager.get().error(f"{Localizer.get().log_write_file_fail}", e)
+                if raise_on_error:
+                    raise
 
         return self
 
-    # 重置专家模式
-    def reset_expert_settings(self) -> None:
-        # ExpertSettingsPage
-        self.preceding_lines_threshold: int = 0
-        self.clean_ruby: bool = True
-        self.deduplication_in_trans: bool = True
-        self.deduplication_in_bilingual: bool = True
-        self.check_kana_residue: bool = True
-        self.check_hangeul_residue: bool = True
-        self.check_similarity: bool = True
-        self.write_translated_name_fields_to_file: bool = True
-        self.auto_process_prefix_suffix_preserved_text: bool = True
-
     # 初始化模型管理器
     def initialize_models(self) -> int:
-        """初始化模型列表，如果没有则从预设复制。返回已被迁移的失效预设模型数量。"""
+        """初始化模型列表，如果没有则从预设复制。返回兼容保留的固定迁移数量。"""
         manager = ModelManager.get()
-        # 设置 UI 语言以确定预设目录
-        manager.set_app_language(self.app_language)
         self.models, migrated_count = manager.initialize_models(self.models or [])
         manager.set_models(self.models)
         # 如果没有激活模型，设置为第一个
@@ -211,24 +259,13 @@ class Config:
         self.activate_model_id = model_id
         ModelManager.get().set_active_model_id(model_id)
 
-    # 同步模型数据到 ModelManager
-    def sync_models_to_manager(self) -> None:
-        """将 Config 中的 models 同步到 ModelManager"""
-        manager = ModelManager.get()
-        manager.set_models(self.models or [])
-        manager.set_active_model_id(self.activate_model_id)
-
-    # 从 ModelManager 同步模型数据
-    def sync_models_from_manager(self) -> None:
-        """从 ModelManager 同步数据到 Config"""
-        manager = ModelManager.get()
-        self.models = manager.get_models_as_dict()
-        self.activate_model_id = manager.activate_model_id
-
     # ========== 最近打开的工程 ==========
     def add_recent_project(self, path: str, name: str) -> None:
         """添加最近打开的工程"""
         from datetime import datetime
+
+        del name
+        normalized_name = self.build_recent_project_display_name(path)
 
         # 移除已存在的同路径条目
         self.recent_projects = [
@@ -240,7 +277,8 @@ class Config:
             0,
             {
                 "path": path,
-                "name": name,
+                # 最近使用列表代表的是工程文件本身，因此标题统一由 .lg 路径推导。
+                "name": normalized_name,
                 "updated_at": datetime.now().isoformat(),
             },
         )

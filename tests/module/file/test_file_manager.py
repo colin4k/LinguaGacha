@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.File.FileManager import FileManager
 
@@ -323,19 +323,6 @@ def test_parse_asset_dispatches_simple_extensions(
     items = FileManager(config).parse_asset(rel_path, b"bytes")
 
     assert [item.get_src() for item in items] == [expected]
-
-
-def test_read_from_assets_combines_results(config: Config) -> None:
-    manager = FileManager(config)
-
-    def fake_parse_asset(rel_path: str, content: bytes) -> list[Item]:
-        del content
-        return [Item.from_dict({"src": rel_path})]
-
-    manager.parse_asset = fake_parse_asset
-    items = manager.read_from_assets({"a.txt": b"1", "b.txt": b"2"})
-
-    assert {item.get_src() for item in items} == {"a.txt", "b.txt"}
 
 
 def test_write_to_path_calls_all_writers_and_returns_output(

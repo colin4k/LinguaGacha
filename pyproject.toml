@@ -1,13 +1,11 @@
 [project]
 name = "linguagacha"
-version = "0.59.1"
+version = "0.0.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = "==3.14.*"
 dependencies = [
     # System
-    "PySide6",
-    "PySide6-Fluent-Widgets[full]",
     "openai",
     "anthropic",
     "google-genai",
@@ -15,8 +13,6 @@ dependencies = [
     "tiktoken",
 
     # Tools
-    "rich",
-    "opencc_pyo3",
     "openpyxl",
     "orjson",
     "json-repair",
@@ -26,6 +22,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+build = [
+    "pyinstaller",
+]
 test = [
     "pytest",
     "pytest-cov",
@@ -41,8 +40,7 @@ addopts = "--cov=module --cov-branch --cov-report=term-missing"
 data_file = "tests/.coverage"
 
 [tool.ruff]
-# line-length = 256
-force-exclude = true        # 强制应用排除规则
+force-exclude = true
 extend-exclude = [
     "module/Localizer/",
 ]

@@ -5,9 +5,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from model.Item import Item
-from module.Data.ItemService import ItemService
-from module.Data.ProjectSession import ProjectSession
+from base.Base import Base
+from module.Data.Core.Item import Item
+from module.Data.Core.ItemService import ItemService
+from module.Data.Core.ProjectSession import ProjectSession
 
 
 def build_service(db: object | None) -> tuple[ItemService, SimpleNamespace]:
@@ -125,6 +126,40 @@ def test_get_all_item_dicts_returns_copy_of_cached_list() -> None:
     assert session.item_cache == [{"id": 1, "src": "A"}]
 
 
+def test_get_item_dicts_by_ids_reads_loaded_cache_by_index() -> None:
+    db = SimpleNamespace(
+        get_all_items=MagicMock(return_value=[]),
+        get_items_by_ids=MagicMock(return_value=[]),
+    )
+    service, session = build_service(db)
+    session.item_cache = [
+        {"id": 1, "src": "A"},
+        {"id": 2, "src": "B"},
+        {"id": 3, "src": "C"},
+    ]
+    session.item_cache_index = {1: 0, 2: 1, 3: 2}
+
+    result = service.get_item_dicts_by_ids([3, 1, 404])
+
+    assert result == [{"id": 3, "src": "C"}, {"id": 1, "src": "A"}]
+    db.get_all_items.assert_not_called()
+    db.get_items_by_ids.assert_not_called()
+
+
+def test_get_item_dicts_by_ids_uses_targeted_db_read_when_cache_is_cold() -> None:
+    db = SimpleNamespace(
+        get_all_items=MagicMock(return_value=[]),
+        get_items_by_ids=MagicMock(return_value=[{"id": 2, "src": "B"}]),
+    )
+    service, _session = build_service(db)
+
+    result = service.get_item_dicts_by_ids([2, 2, 404])
+
+    assert result == [{"id": 2, "src": "B"}]
+    db.get_all_items.assert_not_called()
+    db.get_items_by_ids.assert_called_once_with([2, 404])
+
+
 def test_save_item_updates_cache_for_insert_and_update() -> None:
     db = SimpleNamespace(set_item=MagicMock(side_effect=[3, 1]))
     service, session = build_service(db)
@@ -195,32 +230,53 @@ def test_replace_all_items_raises_when_project_not_loaded() -> None:
         service.replace_all_items([Item(src="A")])
 
 
-def test_update_item_cache_by_dicts_updates_loaded_entries_only() -> None:
-    db = SimpleNamespace()
-    service, session = build_service(db)
-    session.item_cache = [
-        {"id": 1, "src": "A", "dst": "甲"},
-        {"id": 2, "src": "B", "dst": "乙"},
-    ]
-    session.item_cache_index = {1: 0, 2: 1}
+def test_preview_replace_all_item_ids_delegates_to_db() -> None:
+    db = SimpleNamespace(
+        preview_replace_all_item_ids=MagicMock(return_value=[5, 6]),
+    )
+    service, _session = build_service(db)
 
-    service.update_item_cache_by_dicts(
+    ids = service.preview_replace_all_item_ids([Item(src="A"), Item(src="B")])
+
+    assert ids == [5, 6]
+    db.preview_replace_all_item_ids.assert_called_once_with(
         [
-            {"id": 2, "src": "B2", "dst": "乙2"},
-            {"id": 99, "src": "X"},
-            {"src": "no-id"},
+            {
+                "id": None,
+                "src": "A",
+                "dst": "",
+                "name_src": None,
+                "name_dst": None,
+                "extra_field": "",
+                "tag": "",
+                "row": 0,
+                "file_type": Item.FileType.NONE,
+                "file_path": "",
+                "text_type": Item.TextType.NONE,
+                "status": Base.ItemStatus.NONE,
+                "retry_count": 0,
+            },
+            {
+                "id": None,
+                "src": "B",
+                "dst": "",
+                "name_src": None,
+                "name_dst": None,
+                "extra_field": "",
+                "tag": "",
+                "row": 0,
+                "file_type": Item.FileType.NONE,
+                "file_path": "",
+                "text_type": Item.TextType.NONE,
+                "status": Base.ItemStatus.NONE,
+                "retry_count": 0,
+            },
         ]
     )
 
-    assert session.item_cache[0]["src"] == "A"
-    assert session.item_cache[1]["src"] == "B2"
 
+def test_preview_replace_all_item_ids_raises_when_project_not_loaded() -> None:
+    service, _session = build_service(None)
 
-def test_update_item_cache_by_dicts_noop_when_cache_not_loaded() -> None:
-    db = SimpleNamespace()
-    service, session = build_service(db)
-    assert session.item_cache is None
-
-    service.update_item_cache_by_dicts([{"id": 1, "src": "A"}])
-
-    assert session.item_cache is None
+    with pytest.raises(RuntimeError, match="工程未加载"):
+        service.preview_replace_all_item_ids([Item(src="A")])

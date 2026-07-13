@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 from enum import StrEnum
@@ -6,7 +7,8 @@ from typing import Any
 
 from base.Base import Base
 from base.BaseLanguage import BaseLanguage
-from model.Item import Item
+from base.BasePath import BasePath
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.Fixer.CodeFixer import CodeFixer
@@ -70,6 +72,7 @@ class TextProcessor(Base):
         # 始终保留每行的头尾空白（与文本保护规则及其开关解耦）。
         self.leading_whitespace_by_line: dict[int, str] = {}
         self.trailing_whitespace_by_line: dict[int, str] = {}
+        self.process_source_text: str | None = None
 
     def extract_line_edge_whitespace(self, i: int, src: str) -> str:
         leading_len = len(src) - len(src.lstrip())
@@ -104,7 +107,10 @@ class TextProcessor(Base):
             if custom_data:
                 data = [v for v in custom_data if isinstance(v, str) and v.strip()]
         else:
-            path: str = f"resource/preset/text_preserve/{language.lower()}/{text_type.lower()}.json"
+            path = os.path.join(
+                BasePath.get_text_preserve_preset_dir(),
+                f"{str(text_type).lower()}.json",
+            )
             try:
                 raw = JSONTool.load_file(path)
                 if isinstance(raw, list):
@@ -297,13 +303,20 @@ class TextProcessor(Base):
         return dst
 
     # 注入姓名
-    def inject_name(self, srcs: list[str], item: Item | None) -> list[str]:
-        if item is None:
+    @classmethod
+    def inject_name(cls, srcs: list[str], source: Item | str | None) -> list[str]:
+        """统一兼容 Item 和首个姓名文本两种输入，避免外部维护两套入口。"""
+        if source is None:
             return srcs
 
-        name: str | None = item.get_first_name_src()
-        if name is not None and len(srcs) > 0:
-            srcs[0] = f"【{name}】{srcs[0]}"
+        first_name_src: str | None = None
+        if isinstance(source, Item):
+            first_name_src = source.get_first_name_src()
+        elif isinstance(source, str):
+            first_name_src = source
+
+        if first_name_src is not None and len(srcs) > 0:
+            srcs[0] = f"【{first_name_src}】{srcs[0]}"
 
         return srcs
 
@@ -480,7 +493,9 @@ class TextProcessor(Base):
 
         # 依次处理每行，顺序为：
         text_type = item.get_text_type()
-        for i, src in enumerate(item.get_src().split("\n")):
+        source_text = RubyCleaner.clean_item_src(item, self.config)
+        self.process_source_text = source_text
+        for i, src in enumerate(source_text.split("\n")):
             # 正规化
             src = self.normalize(src)
 
@@ -543,7 +558,12 @@ class TextProcessor(Base):
         name, _, dsts = self.extract_name(self.srcs, dsts, item)
 
         # 依次处理每行
-        for i, src in enumerate(item.get_src().split("\n")):
+        source_text = (
+            self.process_source_text
+            if self.process_source_text is not None
+            else item.get_src()
+        )
+        for i, src in enumerate(source_text.split("\n")):
             if src == "":
                 dst = ""
             elif src.strip() == "":

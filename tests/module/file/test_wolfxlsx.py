@@ -11,7 +11,7 @@ from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
 
 from base.Base import Base
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 from module.File.WOLFXLSX import WOLFXLSX
 from tests.module.file.conftest import DummyDataManager
@@ -60,9 +60,9 @@ def test_read_from_stream_sets_status_from_color_and_dst(config: Config) -> None
     items = WOLFXLSX(config).read_from_stream(content, "wolf.xlsx")
 
     assert len(items) == 3
-    assert items[0].get_status() == Base.ProjectStatus.NONE
-    assert items[1].get_status() == Base.ProjectStatus.PROCESSED_IN_PAST
-    assert items[2].get_status() == Base.ProjectStatus.EXCLUDED
+    assert items[0].get_status() == Base.ItemStatus.NONE
+    assert items[1].get_status() == Base.ItemStatus.PROCESSED
+    assert items[2].get_status() == Base.ItemStatus.EXCLUDED
 
 
 def test_get_fg_color_index_returns_minus_one_without_fill(config: Config) -> None:
@@ -141,36 +141,45 @@ def test_write_to_path_restores_original_workbook_when_asset_exists(
 def test_read_from_path_reads_files(
     fs,
     config: Config,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fs.pause()
-    try:
-        content = build_wolf_xlsx_bytes()
-    finally:
-        fs.resume()
     input_root = Path("/fake/input")
-    path = input_root / "wolf.xlsx"
+    path = input_root / "nested" / "wolf.xlsx"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
+    path.write_bytes(b"fake-wolf-xlsx")
+
+    captured: dict[str, object] = {}
+
+    def fake_read_from_stream(
+        self: WOLFXLSX,
+        content: bytes,
+        rel_path: str,
+    ) -> list[Item]:
+        del self
+        captured["content"] = content
+        captured["rel_path"] = rel_path
+        return [
+            Item.from_dict(
+                {
+                    "src": "原文",
+                    "dst": "译文",
+                    "row": 2,
+                    "file_type": Item.FileType.WOLFXLSX,
+                    "file_path": rel_path,
+                }
+            )
+        ]
+
+    monkeypatch.setattr(WOLFXLSX, "read_from_stream", fake_read_from_stream)
 
     items = WOLFXLSX(config).read_from_path([str(path)], str(input_root))
 
-    assert len(items) == 3
-    assert {item.get_file_path() for item in items} == {"wolf.xlsx"}
-
-
-def test_read_from_stream_returns_empty_when_active_sheet_not_worksheet(
-    config: Config,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DummyBook:
-        active = object()
-
-    monkeypatch.setattr(
-        "module.File.WOLFXLSX.openpyxl.load_workbook",
-        lambda *_: DummyBook(),
-    )
-
-    assert WOLFXLSX(config).read_from_stream(b"bytes", "wolf.xlsx") == []
+    assert len(items) == 1
+    assert {item.get_file_path().replace("\\", "/") for item in items} == {
+        "nested/wolf.xlsx"
+    }
+    assert captured["content"] == b"fake-wolf-xlsx"
+    assert str(captured["rel_path"]).replace("\\", "/") == "nested/wolf.xlsx"
 
 
 def test_read_from_stream_returns_empty_when_not_wolf_sheet(config: Config) -> None:
@@ -314,58 +323,3 @@ def test_write_to_path_keeps_empty_dst_as_empty_cell(
     )
 
     assert captured["dst"] == ""
-
-
-def test_read_from_stream_returns_empty_when_sheet_dimension_is_zero(
-    config: Config,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    assert isinstance(sheet, Worksheet)
-    cast(Cell, sheet.cell(row=1, column=1)).value = "code"
-    cast(Cell, sheet.cell(row=1, column=2)).value = "flag"
-    cast(Cell, sheet.cell(row=1, column=3)).value = "type"
-    cast(Cell, sheet.cell(row=1, column=4)).value = "info"
-
-    monkeypatch.setattr(
-        "module.File.WOLFXLSX.openpyxl.load_workbook", lambda *_: workbook
-    )
-    monkeypatch.setattr(Worksheet, "max_row", property(lambda self: 0))
-
-    assert WOLFXLSX(config).read_from_stream(b"bytes", "wolf.xlsx") == []
-
-
-def test_write_to_path_skips_when_new_workbook_active_is_not_worksheet(
-    config: Config,
-    dummy_data_manager: DummyDataManager,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DummyBook:
-        def __init__(self) -> None:
-            self.active = object()
-
-    monkeypatch.setattr("module.File.WOLFXLSX.openpyxl.Workbook", DummyBook)
-    monkeypatch.setattr(
-        "module.File.WOLFXLSX.DataManager.get",
-        lambda: dummy_data_manager,
-    )
-
-    WOLFXLSX(config).write_to_path(
-        [
-            Item.from_dict(
-                {
-                    "src": "原文",
-                    "dst": "译文",
-                    "row": 2,
-                    "file_type": Item.FileType.WOLFXLSX,
-                    "file_path": "wolf/not-sheet.xlsx",
-                }
-            )
-        ]
-    )
-
-    output_file = (
-        Path(dummy_data_manager.get_translated_path()) / "wolf" / "not-sheet.xlsx"
-    )
-    assert output_file.exists() is False

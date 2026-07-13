@@ -1,9 +1,10 @@
 import re
 
-from model.Item import Item
+from module.Config import Config
+from module.Data.Core.Item import Item
+
 
 class RubyCleaner:
-
     # 激进模式额外规则（移除括号/竖线等格式的ruby标记）
     AGGRESSIVE_RULES: tuple[tuple[re.Pattern, str], ...] = (
         # (漢字/かんじ)
@@ -48,3 +49,18 @@ class RubyCleaner:
                 text = re.sub(pattern, replacement, text)
 
         return text
+
+    @classmethod
+    def clean_item_src(cls, item: Item, config: Config) -> str:
+        if not config.clean_ruby:
+            return item.get_src()
+
+        extra = item.get_extra_field()
+        epub = extra.get("epub") if isinstance(extra, dict) else None
+        candidate = epub.get("ruby_clean_candidate") if isinstance(epub, dict) else None
+        if isinstance(candidate, dict):
+            cleaned_src = candidate.get("cleaned_src")
+            if isinstance(cleaned_src, str) and cleaned_src != "":
+                return cleaned_src
+
+        return item.get_src()

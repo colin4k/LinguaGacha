@@ -14,7 +14,7 @@ from lxml import etree
 
 from base.Base import Base
 from base.LogManager import LogManager
-from model.Item import Item
+from module.Data.Core.Item import Item
 from module.Config import Config
 
 
@@ -94,6 +94,12 @@ class EPUBAst(Base):
     )
     RE_HTML_NAMED_ENTITY = re.compile(rb"&([A-Za-z][A-Za-z0-9._:-]*);")
     RE_CDATA_SECTION = re.compile(rb"<!\[CDATA\[.*?\]\]>", re.DOTALL)
+    HTML_DOCUMENT_EXTENSIONS: tuple[str, ...] = (
+        ".xhtml",
+        ".html",
+        ".htm",
+        ".xhtm",
+    )
 
     SKIP_SUBTREE_TAGS: frozenset[str] = frozenset(
         {
@@ -141,6 +147,10 @@ class EPUBAst(Base):
         path = path.replace("\\", "/")
         path = unicodedata.normalize("NFC", path)
         return path
+
+    @classmethod
+    def is_html_document_path(cls, path: str) -> bool:
+        return path.lower().endswith(cls.HTML_DOCUMENT_EXTENSIONS)
 
     @staticmethod
     def resolve_href(base_dir: str, href: str) -> str:
@@ -579,6 +589,49 @@ class EPUBAst(Base):
         walk(block)
         return results
 
+    def collect_visible_text_without_skipped_subtrees(
+        self, block: etree._Element
+    ) -> str:
+        parts: list[str] = []
+
+        def walk(elem: etree._Element) -> None:
+            name = self.local_name(elem.tag)
+            if name in self.SKIP_SUBTREE_TAGS:
+                return
+
+            if elem.text is not None and elem.text != "":
+                parts.append(self.normalize_slot_text(elem.text))
+
+            for child in self.iter_children_elements(elem):
+                walk(child)
+                if child.tail is not None and child.tail != "":
+                    parts.append(self.normalize_slot_text(child.tail))
+
+        walk(block)
+        return "".join(parts)
+
+    def build_ruby_clean_candidate(
+        self,
+        elem: etree._Element,
+        block_path: str,
+    ) -> dict[str, str] | None:
+        has_ruby = any(
+            isinstance(node.tag, str) and self.local_name(node.tag) == "ruby"
+            for node in elem.iter()
+        )
+        if not has_ruby:
+            return None
+
+        cleaned_src = self.collect_visible_text_without_skipped_subtrees(elem)
+        if cleaned_src.strip() == "":
+            return None
+
+        return {
+            "cleaned_src": cleaned_src,
+            "block_path": block_path,
+            "cleaned_digest": self.sha1_hex(cleaned_src),
+        }
+
     def is_block_candidate(self, elem: etree._Element) -> bool:
         name = self.local_name(elem.tag)
         return name in self.BLOCK_TAGS
@@ -613,6 +666,7 @@ class EPUBAst(Base):
         block_path: str,
         slots: list[tuple[EpubPartRef, str]],
         is_nav: bool,
+        ruby_clean_candidate: dict[str, str] | None = None,
     ) -> Item | None:
         part_defs: list[dict[str, str]] = []
         part_texts: list[str] = []
@@ -629,6 +683,17 @@ class EPUBAst(Base):
 
         src = "\n".join(part_texts)
         digest = self.sha1_hex_with_null_separator(part_texts)
+        epub_extra: dict[str, object] = {
+            "mode": "slot_per_line",
+            "doc_path": doc_path,
+            "block_path": block_path,
+            "parts": part_defs,
+            "src_digest": digest,
+            "is_nav": is_nav,
+        }
+        if ruby_clean_candidate is not None:
+            epub_extra["ruby_clean_candidate"] = ruby_clean_candidate
+
         return Item.from_dict(
             {
                 "src": src,
@@ -637,16 +702,7 @@ class EPUBAst(Base):
                 "row": spine_index * self.ROW_MULTIPLIER + unit_index,
                 "file_type": Item.FileType.EPUB,
                 "file_path": rel_path,
-                "extra_field": {
-                    "epub": {
-                        "mode": "slot_per_line",
-                        "doc_path": doc_path,
-                        "block_path": block_path,
-                        "parts": part_defs,
-                        "src_digest": digest,
-                        "is_nav": is_nav,
-                    }
-                },
+                "extra_field": {"epub": epub_extra},
             }
         )
 
@@ -669,11 +725,13 @@ class EPUBAst(Base):
         path_map: dict[int, str],
         in_skipped_map: dict[int, bool],
         has_block_descendant_map: dict[int, bool],
-    ) -> list[tuple[str, list[tuple[EpubPartRef, str]]]]:
+    ) -> list[tuple[str, list[tuple[EpubPartRef, str]], dict[str, str] | None]]:
         if in_skipped_map.get(id(elem), False):
             return []
 
-        units: list[tuple[str, list[tuple[EpubPartRef, str]]]] = []
+        units: list[
+            tuple[str, list[tuple[EpubPartRef, str]], dict[str, str] | None]
+        ] = []
         is_block = self.is_block_candidate(elem)
         has_block_descendant = has_block_descendant_map.get(id(elem), False)
         elem_path = self.get_path_from_map(root, elem, path_map)
@@ -684,6 +742,7 @@ class EPUBAst(Base):
                 (
                     elem_path,
                     self.iter_translatable_text_slots(root, elem, path_map=path_map),
+                    self.build_ruby_clean_candidate(elem, elem_path),
                 )
             )
             return units
@@ -700,6 +759,7 @@ class EPUBAst(Base):
                             elem.text,
                         )
                     ],
+                    None,
                 )
             )
 
@@ -726,6 +786,7 @@ class EPUBAst(Base):
                                 child.tail,
                             )
                         ],
+                        None,
                     )
                 )
 
@@ -776,7 +837,7 @@ class EPUBAst(Base):
             has_block_descendant_map=has_block_descendant_map,
         )
         unit_index = 0
-        for block_path, slots in units:
+        for block_path, slots, ruby_clean_candidate in units:
             item = self.create_item_from_slots(
                 doc_path=doc_path,
                 rel_path=rel_path,
@@ -785,6 +846,7 @@ class EPUBAst(Base):
                 block_path=block_path,
                 slots=slots,
                 is_nav=is_nav,
+                ruby_clean_candidate=ruby_clean_candidate,
             )
             if item is None:
                 continue
@@ -854,8 +916,7 @@ class EPUBAst(Base):
             processed_paths: set[str] = set()
 
             for spine_index, doc_path in enumerate(pkg.spine_paths):
-                lower = doc_path.lower()
-                if not lower.endswith((".xhtml", ".html", ".htm")):
+                if not self.is_html_document_path(doc_path):
                     continue
                 try:
                     with zip_reader.open(doc_path) as f:
@@ -876,8 +937,7 @@ class EPUBAst(Base):
 
             # v3 nav.xhtml（目录通常不在 spine，必须显式处理）
             if pkg.nav_path and pkg.nav_path not in processed_paths:
-                nav_lower = pkg.nav_path.lower()
-                if nav_lower.endswith((".xhtml", ".html", ".htm")):
+                if self.is_html_document_path(pkg.nav_path):
                     try:
                         with zip_reader.open(pkg.nav_path) as f:
                             raw = f.read()
