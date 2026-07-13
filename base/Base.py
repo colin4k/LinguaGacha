@@ -26,25 +26,37 @@ class Base:
 
     # 事件
     class Event(StrEnum):
-        TRANSLATION_TASK = (
-            "TRANSLATION_TASK"  # 翻译 - 任务生命周期事件（发起/运行/结束）
-        )
-        TRANSLATION_REQUEST_STOP = (
-            "TRANSLATION_REQUEST_STOP"  # 翻译 - 停止当前任务请求链路（REQUEST/RUN）
-        )
-        TRANSLATION_PROGRESS = "TRANSLATION_PROGRESS"  # 翻译 - 进度快照更新
+        TRANSLATION_TASK = "TRANSLATION_TASK"  # 翻译 - 任务生命周期事件
+        TRANSLATION_REQUEST_STOP = "TRANSLATION_REQUEST_STOP"  # 翻译 - 停止请求
+        TRANSLATION_PROGRESS = "TRANSLATION_PROGRESS"  # 翻译 - 进度快照
         TRANSLATION_EXPORT = "TRANSLATION_EXPORT"  # 翻译 - 导出
-        ANALYSIS_TASK = "ANALYSIS_TASK"  # 分析 - 任务生命周期事件（发起/运行/结束）
-        ANALYSIS_REQUEST_STOP = (
-            "ANALYSIS_REQUEST_STOP"  # 分析 - 停止当前任务请求链路（REQUEST/RUN）
-        )
-        ANALYSIS_PROGRESS = "ANALYSIS_PROGRESS"  # 分析 - 进度快照更新
+        TRANSLATION_MANUAL_EXPORT = "TRANSLATION_MANUAL_EXPORT"  # 翻译 - 手动导出
+        TRANSLATION_UPDATE = "TRANSLATION_UPDATE"  # 翻译 - 更新（旧名）
+        TRANSLATION_START = "TRANSLATION_START"  # 翻译 - 开始（旧名）
+        TRANSLATION_STOP = "TRANSLATION_STOP"  # 翻译 - 停止（旧名）
+        TRANSLATION_STOP_DONE = "TRANSLATION_STOP_DONE"  # 翻译 - 停止完成（旧名）
+        TRANSLATION_RESET_ALL = "TRANSLATION_RESET_ALL"  # 翻译 - 全部重置
+        TRANSLATION_RESET_FAILED = "TRANSLATION_RESET_FAILED"  # 翻译 - 重置失败
+        ANALYSIS_TASK = "ANALYSIS_TASK"  # 分析 - 任务生命周期事件
+        ANALYSIS_REQUEST_STOP = "ANALYSIS_REQUEST_STOP"  # 分析 - 停止请求
+        ANALYSIS_PROGRESS = "ANALYSIS_PROGRESS"  # 分析 - 进度快照
         RETRANSLATE_TASK = "RETRANSLATE_TASK"  # 重翻 - 任务生命周期事件
         PROJECT_LOADED = "PROJECT_LOADED"  # 工程 - 已加载
         PROJECT_UNLOADED = "PROJECT_UNLOADED"  # 工程 - 已卸载
-        PROJECT_RUNTIME_PATCH = "PROJECT_RUNTIME_PATCH"  # 工程 - V2 运行态直接补丁
-        PROJECT_CHECK = "PROJECT_CHECK"  # 工程 - 检查生命周期事件
+        PROJECT_RUNTIME_PATCH = "PROJECT_RUNTIME_PATCH"  # 工程 - 运行态补丁
+        PROJECT_CHECK = "PROJECT_CHECK"  # 工程 - 检查
+        PROJECT_FILE_UPDATE = "PROJECT_FILE_UPDATE"  # 工程 - 文件更新
+        PROJECT_PREFILTER = "PROJECT_PREFILTER"  # 工程 - 预过滤
         CONFIG_UPDATED = "CONFIG_UPDATED"  # 配置 - 已更新
+        QUALITY_RULE_UPDATE = "QUALITY_RULE_UPDATE"  # 质量规则 - 更新
+        WORKBENCH_REFRESH = "WORKBENCH_REFRESH"  # 工作台 - 刷新
+        WORKBENCH_SNAPSHOT = "WORKBENCH_SNAPSHOT"  # 工作台 - 快照
+        APITEST = "APITEST"  # API 测试
+        APP_UPDATE_APPLY = "APP_UPDATE_APPLY"  # 应用更新 - 应用
+        APP_UPDATE_CHECK = "APP_UPDATE_CHECK"  # 应用更新 - 检查
+        APP_UPDATE_DOWNLOAD = "APP_UPDATE_DOWNLOAD"  # 应用更新 - 下载
+        TOAST = "TOAST"  # 提示框
+        PROGRESS_TOAST = "PROGRESS_TOAST"  # 进度提示框
 
     # 通用生命周期子事件
     # 为什么需要它：多数事件都遵循“请求 -> 运行 -> 更新 -> 完成/失败”的同构流程，
