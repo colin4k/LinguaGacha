@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ctypes
-import logging
 import os
 import signal
 import sys
@@ -9,24 +8,32 @@ import threading
 import time
 from types import TracebackType
 
-from api.Application.CoreLifecycleAppService import CoreLifecycleAppService
-from api.Server.ServerBootstrap import ServerBootstrap
-from base.Base import Base
-from base.BasePath import BasePath
+from PySide6.QtCore import QMessageLogContext
+from PySide6.QtCore import Qt
+from PySide6.QtCore import QtMsgType
+from PySide6.QtCore import qInstallMessageHandler
+from PySide6.QtGui import QFont
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
+from qfluentwidgets import Theme
+from qfluentwidgets import setTheme
+from rich.console import Console
+
+from base.CLIManager import CLIManager
+from base.EventManager import EventManager
 from base.LogManager import LogManager
+from base.VersionManager import VersionManager
+from frontend.AppFluentWindow import AppFluentWindow
 from module.Config import Config
 from module.Data.DataManager import DataManager
 from module.Engine.Engine import Engine
 from module.Localizer.Localizer import Localizer
-from module.Migration.UserDataMigrationService import UserDataMigrationService
 
-APP_VERSION_FILE_NAME: str = "version.txt"
-CORE_INSTANCE_TOKEN_ENV_NAME: str = "LINGUAGACHA_CORE_INSTANCE_TOKEN"
-PARENT_PID_ENV_NAME: str = "LINGUAGACHA_PARENT_PID"
-SHUTDOWN_API_RESPONSE_DELAY_SECONDS: float = 0.05
-PARENT_WATCH_INTERVAL_SECONDS: float = 1.0
-WINDOWS_STILL_ACTIVE_EXIT_CODE: int = 259
-WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION: int = 0x1000
+# QT 日志黑名单
+QT_LOG_BLACKLIST: tuple[str, ...] = (
+    "Error calling Python override of QDialog::eventFilter()",
+    "QFont::setPointSize: Point size <= 0 (-1), must be greater than 0",
+)
 
 
 def excepthook(
@@ -36,9 +43,7 @@ def excepthook(
 ) -> None:
     del exc_type
     del exc_traceback
-    logger = LogManager.get()
-    logger.fatal(Localizer.get().log_crash, exc_value)
-    logger.shutdown()
+    LogManager.get().error(Localizer.get().log_crash, exc_value)
 
     if not isinstance(exc_value, KeyboardInterrupt):
         print("")
@@ -57,7 +62,7 @@ def thread_excepthook(args: threading.ExceptHookArgs) -> None:
 
     try:
         thread_name = getattr(getattr(args, "thread", None), "name", "<unknown>")
-        LogManager.get().fatal(
+        LogManager.get().error(
             f"Uncaught exception in thread: {thread_name}",
             getattr(args, "exc_value", None),
         )
@@ -75,241 +80,160 @@ def unraisable_hook(unraisable: sys.UnraisableHookArgs) -> None:
     try:
         obj_repr = repr(getattr(unraisable, "object", None))
         err_msg = getattr(unraisable, "err_msg", "") or ""
-        LogManager.get().fatal(
+        LogManager.get().warning(
             f"Unraisable exception: {err_msg} object={obj_repr}",
             getattr(unraisable, "exc_value", None),
-            level=logging.WARNING,
         )
     except Exception:
         # 兜底：异常处理路径中再抛异常只会让排障更困难。
         pass
 
 
-def disable_windows_quick_edit_mode() -> None:
-    """无头运行时仍复用旧终端保护，避免误选中文本卡住进程。"""
-    if os.name == "nt":
-        kernel32 = ctypes.windll.kernel32
+def qt_message_handler(
+    msg_type: QtMsgType,
+    context: QMessageLogContext,
+    msg: str,
+) -> None:
+    """Qt 日志处理器。
 
-        h_stdin = kernel32.GetStdHandle(-10)
-        mode = ctypes.c_ulong()
+    用于屏蔽已知的无害噪音日志，避免污染控制台输出。
+    """
 
-        if kernel32.GetConsoleMode(h_stdin, ctypes.byref(mode)):
-            mode.value &= ~0x0040
-            kernel32.SetConsoleMode(h_stdin, mode)
+    del msg_type, context
+
+    if any(v in msg for v in QT_LOG_BLACKLIST):
+        pass
+    else:
+        print(msg)
 
 
-def bootstrap_runtime() -> LogManager:
-    """统一收敛无头 Core API 入口共享的启动阶段。"""
-    app_root = BasePath.resolve_app_root()
-    is_frozen = getattr(sys, "frozen", False)
-
-    BasePath.initialize(app_root, is_frozen)
-
+if __name__ == "__main__":
+    # 捕获全局异常
     sys.excepthook = excepthook
     sys.unraisablehook = unraisable_hook
     threading.excepthook = thread_excepthook
 
-    disable_windows_quick_edit_mode()
+    # 捕获 QT 日志
+    qInstallMessageHandler(qt_message_handler)
 
-    if app_root not in sys.path:
-        sys.path.append(app_root)
+    # 当运行在 Windows 系统且没有运行在新终端时，禁用快速编辑模式
+    if os.name == "nt" and Console().color_system != "truecolor":
+        kernel32 = ctypes.windll.kernel32
 
-    os.chdir(app_root)
+        # 获取控制台句柄
+        hStdin = kernel32.GetStdHandle(-10)
+        mode = ctypes.c_ulong()
 
-    UserDataMigrationService.run_startup_migrations()
+        # 获取当前控制台模式
+        if kernel32.GetConsoleMode(hStdin, ctypes.byref(mode)):
+            # 清除启用快速编辑模式的标志 (0x0040)
+            mode.value &= ~0x0040
+            # 设置新的控制台模式
+            kernel32.SetConsoleMode(hStdin, mode)
 
+    # 适配非整数倍缩放
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+
+    # 设置工作目录
+    app_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    sys.path.append(app_dir)
+
+    # 检测只读环境（AppImage, macOS .app bundle）
+    is_appimage = os.environ.get("APPIMAGE") is not None
+    is_macos_app = sys.platform == "darwin" and ".app/Contents/MacOS" in app_dir
+
+    if is_appimage or is_macos_app:
+        # 便携式环境使用用户主目录存储数据
+        data_dir = os.path.join(os.path.expanduser("~"), "LinguaGacha")
+    else:
+        # Windows 和直接执行时使用应用目录
+        data_dir = app_dir
+
+    # 设置环境变量供其他模块使用
+    os.environ["LINGUAGACHA_APP_DIR"] = app_dir
+    os.environ["LINGUAGACHA_DATA_DIR"] = data_dir
+
+    # 工作目录保持在 app_dir 以便访问资源文件（version.txt, resource/ 等）
+    os.chdir(app_dir)
+
+    # 载入并保存默认配置
     config = Config().load()
-    Localizer.set_app_language(config.app_language)
-    logger = LogManager.get()
 
-    version_path = os.path.join(BasePath.get_app_root(), APP_VERSION_FILE_NAME)
-    with open(version_path, "r", encoding="utf-8-sig") as reader:
+    # 加载版本号
+    with open("version.txt", "r", encoding="utf-8-sig") as reader:
         version = reader.read().strip()
 
-    Base.APP_VERSION = version
-    logger.info(f"{Base.APP_NAME} v{version}")
-    logger.print("")
+    # 设置主题
+    setTheme(Theme.DARK if config.theme == Config.Theme.DARK else Theme.LIGHT)
 
+    # 设置应用语言
+    Localizer.set_app_language(config.app_language)
+
+    # 启动早期先做更新残留清理，确保脚本异常中断后仍可自愈
+    VersionManager.cleanup_update_temp_on_startup()
+
+    # 打印日志
+    LogManager.get().info(f"LinguaGacha {version}")
+    if LogManager.get().is_expert_mode():
+        LogManager.get().info(Localizer.get().log_expert_mode)
+    LogManager.get().print("")
+
+    # 网络代理
+    if not config.proxy_enable or config.proxy_url == "":
+        os.environ.pop("http_proxy", None)
+        os.environ.pop("https_proxy", None)
+    else:
+        LogManager.get().info(Localizer.get().log_proxy)
+        os.environ["http_proxy"] = config.proxy_url
+        os.environ["https_proxy"] = config.proxy_url
+
+    # 设置全局缩放比例
+    if config.scale_factor == "50%":
+        os.environ["QT_SCALE_FACTOR"] = "0.50"
+    elif config.scale_factor == "75%":
+        os.environ["QT_SCALE_FACTOR"] = "0.75"
+    elif config.scale_factor == "150%":
+        os.environ["QT_SCALE_FACTOR"] = "1.50"
+    elif config.scale_factor == "200%":
+        os.environ["QT_SCALE_FACTOR"] = "2.00"
+    else:
+        os.environ.pop("QT_SCALE_FACTOR", None)
+
+    # 创建全局应用对象
+    app = QApplication(sys.argv)
+
+    # 固定事件中心的 QObject 线程亲和性在主线程，避免后台线程首次触发导致回调跑偏。
+    EventManager.get()
+
+    # 设置应用图标
+    app.setWindowIcon(QIcon("resource/icon_no_bg.png"))
+
+    # 设置全局字体属性，解决狗牙问题。
+    # 注意：不要用 QFont() 覆盖系统字体尺寸，否则 pointSize() 可能是 -1 并触发 Qt 警告。
+    font = QFont(app.font())
+    font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    app.setFont(font)
+
+    # 启动任务引擎
     Engine.get().run()
 
-    return logger
+    # 创建版本管理器
+    VersionManager.get().set_version(version)
 
+    # 注册应用退出清理（确保数据库连接正确关闭，WAL 文件被清理）
+    def cleanup_on_exit() -> None:
+        dm = DataManager.get()
+        if dm.is_loaded():
+            dm.unload_project()
 
-def cleanup_runtime(
-    *,
-    local_api_server_runtime: ServerBootstrap.ServerRuntime | None,
-    logger: LogManager,
-) -> None:
-    """统一关闭服务、卸载工程并冲刷日志，避免不同退出口各写一份。"""
-    runtime_shutdown = getattr(local_api_server_runtime, "shutdown", None)
-    if callable(runtime_shutdown):
-        runtime_shutdown()
+    app.aboutToQuit.connect(cleanup_on_exit)
 
-    data_manager = DataManager.get()
-    if data_manager.is_loaded():
-        data_manager.unload_project()
+    # 处理启动参数
+    if not CLIManager.get().run():
+        app_fluent_window = AppFluentWindow()
+        app_fluent_window.show()
 
-    logger.shutdown()
-
-
-def wait_for_headless_shutdown(
-    shutdown_event: threading.Event | None = None,
-) -> None:
-    """无头模式持续驻留，直到收到中断信号。"""
-    resolved_shutdown_event = (
-        threading.Event() if shutdown_event is None else shutdown_event
-    )
-    while not resolved_shutdown_event.wait(0.5):
-        continue
-
-
-def request_shutdown_after_response(shutdown_event: threading.Event) -> None:
-    """HTTP 响应先写回，再异步触发统一清理路径。"""
-
-    shutdown_timer = threading.Timer(
-        SHUTDOWN_API_RESPONSE_DELAY_SECONDS,
-        shutdown_event.set,
-    )
-    shutdown_timer.daemon = True
-    shutdown_timer.start()
-
-
-def install_shutdown_signal_handlers(shutdown_event: threading.Event) -> None:
-    """Electron 关闭或终端中断都汇入同一个 shutdown event。"""
-
-    def handle_signal(signal_number: int, frame) -> None:
-        del signal_number
-        del frame
-        shutdown_event.set()
-
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
-
-
-def load_parent_pid() -> int | None:
-    """读取 Electron main 传入的父进程 PID；缺失时跳过守护。"""
-
-    raw_parent_pid = os.environ.get(PARENT_PID_ENV_NAME, "").strip()
-    if raw_parent_pid == "":
-        return None
-
-    try:
-        parent_pid = int(raw_parent_pid)
-    except ValueError:
-        return None
-
-    if parent_pid <= 0:
-        return None
-    return parent_pid
-
-
-def is_windows_process_alive(pid: int) -> bool:
-    """Windows 下用进程句柄查询存活状态，避免向父进程发送信号。"""
-
-    kernel32 = ctypes.windll.kernel32
-    process_handle = kernel32.OpenProcess(
-        WINDOWS_PROCESS_QUERY_LIMITED_INFORMATION,
-        False,
-        pid,
-    )
-    if process_handle == 0:
-        return False
-
-    exit_code = ctypes.c_ulong()
-    try:
-        if not kernel32.GetExitCodeProcess(
-            process_handle,
-            ctypes.byref(exit_code),
-        ):
-            return False
-        return exit_code.value == WINDOWS_STILL_ACTIVE_EXIT_CODE
-    finally:
-        kernel32.CloseHandle(process_handle)
-
-
-def is_posix_process_alive(pid: int) -> bool:
-    """POSIX 下 signal 0 只做存在性探测，不会终止目标进程。"""
-
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
-
-
-def is_parent_process_alive(pid: int) -> bool:
-    """跨平台判断 Electron main 是否仍然存在。"""
-
-    if os.name == "nt":
-        return is_windows_process_alive(pid)
-    return is_posix_process_alive(pid)
-
-
-def start_parent_process_watchdog(
-    *,
-    shutdown_event: threading.Event,
-    logger: LogManager,
-) -> threading.Thread | None:
-    """父进程消失时自动触发清理，避免 Core 成为孤儿进程。"""
-
-    parent_pid = load_parent_pid()
-    if parent_pid is None:
-        return None
-
-    def watch_parent_process() -> None:
-        while not shutdown_event.wait(PARENT_WATCH_INTERVAL_SECONDS):
-            if not is_parent_process_alive(parent_pid):
-                logger.warning(
-                    f"Parent process is gone, shutting down Core: {parent_pid}"
-                )
-                shutdown_event.set()
-                return
-
-    watchdog_thread = threading.Thread(
-        target=watch_parent_process,
-        daemon=True,
-        name="CoreParentProcessWatchdog",
-    )
-    watchdog_thread.start()
-    return watchdog_thread
-
-
-def run_headless_mode(*, logger: LogManager) -> None:
-    """无头模式负责本地 Core API 生命周期与统一清理。"""
-    shutdown_event = threading.Event()
-    install_shutdown_signal_handlers(shutdown_event)
-    start_parent_process_watchdog(
-        shutdown_event=shutdown_event,
-        logger=logger,
-    )
-    core_lifecycle_app_service = CoreLifecycleAppService(
-        instance_token=os.environ.get(CORE_INSTANCE_TOKEN_ENV_NAME, ""),
-        request_shutdown=lambda: request_shutdown_after_response(shutdown_event),
-    )
-    local_api_server_runtime = ServerBootstrap.start(
-        core_lifecycle_app_service=core_lifecycle_app_service,
-    )
-    try:
-        wait_for_headless_shutdown(shutdown_event)
-    except KeyboardInterrupt:
-        shutdown_event.set()
-    finally:
-        cleanup_runtime(
-            local_api_server_runtime=local_api_server_runtime,
-            logger=logger,
-        )
-
-
-def main(argv: list[str] | None = None) -> int:
-    """无头 Core API 的唯一公开入口。"""
-    del argv
-
-    logger = bootstrap_runtime()
-    run_headless_mode(logger=logger)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    # 进入事件循环，等待用户操作
+    sys.exit(app.exec())
