@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections import defaultdict
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any
@@ -29,6 +30,7 @@ from module.Data.Storage.LGDatabase import LGDatabase
 from module.Data.Quality.QualityRuleService import QualityRuleService
 from module.Localizer.Localizer import Localizer
 from module.Migration.ItemStatusMigrationService import ItemStatusMigrationService
+from module.Utils.GapTool import GapTool
 from module.Utils.ZstdTool import ZstdTool
 
 
@@ -1479,3 +1481,168 @@ class DataManager(Base):
             prefilter_config=prefilter_config,
             expected_section_revisions=expected_section_revisions,
         )
+
+    # -------------------------------------------------------------------------
+    # 以下方法从合并前本地 HEAD 还原（上游重构时删除，GUI 层仍在使用）
+    # -------------------------------------------------------------------------
+
+    def get_custom_prompt_zh(self) -> str:
+        return self.get_rule_text_cached(LGDatabase.RuleType.CUSTOM_PROMPT_ZH)
+
+    def set_custom_prompt_zh(self, text: str) -> None:
+        self.set_rule_text_cached(LGDatabase.RuleType.CUSTOM_PROMPT_ZH, text)
+
+    def get_custom_prompt_zh_enable(self) -> bool:
+        return bool(self.get_meta("custom_prompt_zh_enable", False))
+
+    def set_custom_prompt_zh_enable(self, enable: bool) -> None:
+        self.set_meta("custom_prompt_zh_enable", bool(enable))
+
+    def get_custom_prompt_en(self) -> str:
+        return self.get_rule_text_cached(LGDatabase.RuleType.CUSTOM_PROMPT_EN)
+
+    def set_custom_prompt_en(self, text: str) -> None:
+        self.set_rule_text_cached(LGDatabase.RuleType.CUSTOM_PROMPT_EN, text)
+
+    def get_custom_prompt_en_enable(self) -> bool:
+        return bool(self.get_meta("custom_prompt_en_enable", False))
+
+    def set_custom_prompt_en_enable(self, enable: bool) -> None:
+        self.set_meta("custom_prompt_en_enable", bool(enable))
+
+    def get_supported_extensions(self) -> set[str]:
+        return set(self.project_service.SUPPORTED_EXTENSIONS)
+
+    def build_workbench_snapshot(self) -> WorkbenchSnapshot:
+        """构建工作台文件列表快照（可安全在后台线程调用）。"""
+        asset_paths = self.get_all_asset_paths()
+        item_dicts = self.get_all_item_dicts()
+
+        counted_statuses = {
+            Base.ItemStatus.NONE,
+            Base.ItemStatus.PROCESSING,
+            Base.ItemStatus.PROCESSED,
+            Base.ItemStatus.PROCESSED_IN_PAST,
+            Base.ItemStatus.ERROR,
+        }
+        translated_statuses = {
+            Base.ItemStatus.PROCESSED,
+            Base.ItemStatus.PROCESSED_IN_PAST,
+        }
+
+        total_items = 0
+        translated = 0
+        count_by_path: dict[str, int] = defaultdict(int)
+        file_type_by_path: dict[str, Item.FileType] = {}
+        for item in GapTool.iter(item_dicts):
+            rel_path = item.get("file_path")
+            if not isinstance(rel_path, str) or rel_path == "":
+                continue
+            if rel_path not in file_type_by_path:
+                raw_type = item.get("file_type")
+                if isinstance(raw_type, str) and raw_type and raw_type != Item.FileType.NONE:
+                    try:
+                        file_type_by_path[rel_path] = Item.FileType(raw_type)
+                    except ValueError:
+                        pass
+            status = item.get("status", Base.ItemStatus.NONE)
+            if status not in counted_statuses:
+                continue
+            total_items += 1
+            count_by_path[rel_path] += 1
+            if status in translated_statuses:
+                translated += 1
+
+        untranslated = max(0, total_items - translated)
+        entries: list[WorkbenchFileEntrySnapshot] = []
+        for rel_path in GapTool.iter(asset_paths):
+            entries.append(
+                WorkbenchFileEntrySnapshot(
+                    rel_path=rel_path,
+                    item_count=count_by_path.get(rel_path, 0),
+                    file_type=file_type_by_path.get(rel_path, Item.FileType.NONE),
+                )
+            )
+        return WorkbenchSnapshot(
+            file_count=len(asset_paths),
+            total_items=total_items,
+            translated=translated,
+            untranslated=untranslated,
+            entries=tuple(entries),
+        )
+
+    def schedule_add_file(self, file_path: str) -> None:
+        if not self.try_begin_file_operation():
+            self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": Localizer.get().task_running})
+            return
+        def worker() -> None:
+            self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.RUN, "message": Localizer.get().workbench_btn_add_file, "indeterminate": True})
+            try:
+                self.add_file(file_path)
+                self.run_project_prefilter(Config().load(), reason="file_op")
+            except ValueError as e:
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": str(e)})
+            except Exception as e:
+                LogManager.get().error(f"Failed to add file: {file_path}", e)
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.ERROR, "message": str(e)})
+            finally:
+                self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.DONE})
+                self.finish_file_operation()
+        threading.Thread(target=worker, daemon=True).start()
+
+    def schedule_update_file(self, rel_path: str, new_file_path: str) -> None:
+        if not self.try_begin_file_operation():
+            self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": Localizer.get().task_running})
+            return
+        def worker() -> None:
+            self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.RUN, "message": Localizer.get().workbench_btn_update, "indeterminate": True})
+            try:
+                self.update_file(rel_path, new_file_path)
+                self.run_project_prefilter(Config().load(), reason="file_op")
+            except ValueError as e:
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": str(e)})
+            except Exception as e:
+                LogManager.get().error(f"Failed to update file: {rel_path} -> {new_file_path}", e)
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.ERROR, "message": str(e)})
+            finally:
+                self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.DONE})
+                self.finish_file_operation()
+        threading.Thread(target=worker, daemon=True).start()
+
+    def schedule_reset_file(self, rel_path: str) -> None:
+        if not self.try_begin_file_operation():
+            self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": Localizer.get().task_running})
+            return
+        def worker() -> None:
+            self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.RUN, "message": Localizer.get().workbench_btn_reset, "indeterminate": True})
+            try:
+                self.reset_file(rel_path)
+                self.run_project_prefilter(Config().load(), reason="file_op")
+            except ValueError as e:
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": str(e)})
+            except Exception as e:
+                LogManager.get().error(f"Failed to reset file: {rel_path}", e)
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.ERROR, "message": str(e)})
+            finally:
+                self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.DONE})
+                self.finish_file_operation()
+        threading.Thread(target=worker, daemon=True).start()
+
+    def schedule_delete_file(self, rel_path: str) -> None:
+        if not self.try_begin_file_operation():
+            self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": Localizer.get().task_running})
+            return
+        def worker() -> None:
+            self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.RUN, "message": Localizer.get().workbench_btn_delete, "indeterminate": True})
+            try:
+                self.delete_file(rel_path)
+                self.run_project_prefilter(Config().load(), reason="file_op")
+            except ValueError as e:
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.WARNING, "message": str(e)})
+            except Exception as e:
+                LogManager.get().error(f"Failed to delete file: {rel_path}", e)
+                self.emit(Base.Event.TOAST, {"type": Base.ToastType.ERROR, "message": str(e)})
+            finally:
+                self.emit(Base.Event.PROGRESS_TOAST, {"sub_event": Base.SubEvent.DONE})
+                self.finish_file_operation()
+        threading.Thread(target=worker, daemon=True).start()
