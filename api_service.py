@@ -17,6 +17,7 @@ import uvicorn
 
 # 导入原有应用的模块
 from base.Base import Base
+from base.BaseLanguage import BaseLanguage
 from module.Translator.Translator import Translator
 from module.File.FileManager import FileManager
 from module.File.FileChecker import FileChecker
@@ -1214,7 +1215,7 @@ if __name__ == "__main__":
 
     # 初始化语言设置
     config = load_config()
-    Localizer.set_app_language(config.get("app_language", Base.Language.ZH))
+    Localizer.set_app_language(config.get("app_language", BaseLanguage.Enum.ZH))
 
     # 打印启动日志
     LogHelper.info("LinguaGacha API 服务启动")

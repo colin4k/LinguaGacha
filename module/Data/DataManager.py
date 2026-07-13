@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from typing import Any
 from typing import ClassVar
 
@@ -29,6 +30,26 @@ from module.Data.Quality.QualityRuleService import QualityRuleService
 from module.Localizer.Localizer import Localizer
 from module.Migration.ItemStatusMigrationService import ItemStatusMigrationService
 from module.Utils.ZstdTool import ZstdTool
+
+
+@dataclass(frozen=True)
+class WorkbenchFileEntrySnapshot:
+    """工作台文件表的单行快照（跨线程传递）。"""
+
+    rel_path: str
+    item_count: int
+    file_type: Item.FileType
+
+
+@dataclass(frozen=True)
+class WorkbenchSnapshot:
+    """工作台文件列表与统计信息快照（跨线程传递）。"""
+
+    file_count: int
+    total_items: int
+    translated: int
+    untranslated: int
+    entries: tuple[WorkbenchFileEntrySnapshot, ...]
 
 
 class DataManager(Base):

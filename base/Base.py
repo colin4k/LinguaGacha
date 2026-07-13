@@ -77,15 +77,47 @@ class Base:
         RETRANSLATING = "RETRANSLATING"  # 重翻中
         STOPPING = "STOPPING"  # 停止中
 
-    # 条目状态；旧 PROCESSING 只在迁移服务中按字符串兼容，当前枚举不再暴露。
+    # 条目状态
     class ItemStatus(StrEnum):
         NONE = "NONE"  # 无
         PROCESSED = "PROCESSED"  # 已处理
+        PROCESSING = "PROCESSING"  # 处理中（旧名，向后兼容）
+        PROCESSED_IN_PAST = "PROCESSED_IN_PAST"  # 历史已处理（旧名，向后兼容）
         EXCLUDED = "EXCLUDED"  # 已排除
         RULE_SKIPPED = "RULE_SKIPPED"  # 规则跳过
         LANGUAGE_SKIPPED = "LANGUAGE_SKIPPED"  # 非目标原文语言
         DUPLICATED = "DUPLICATED"  # 重复条目
         ERROR = "ERROR"  # 处理出错/重试失败
+
+    # 向后兼容别名：旧代码使用 Base.ProjectStatus，新代码使用 Base.ItemStatus
+    ProjectStatus = ItemStatus
+
+    # 提示框类型（GUI 层使用）
+    class ToastType(StrEnum):
+        INFO = "INFO"
+        SUCCESS = "SUCCESS"
+        WARNING = "WARNING"
+        ERROR = "ERROR"
+
+    # 工程预过滤子事件（GUI 层使用）
+    class ProjectPrefilterSubEvent(StrEnum):
+        RUN = "RUN"
+        UPDATED = "UPDATED"
+        DONE = "DONE"
+        ERROR = "ERROR"
+
+    # 翻译状态（api_service.py 使用，向后兼容）
+    class TranslationStatus(StrEnum):
+        UNTRANSLATED = "UNTRANSLATED"
+        TRANSLATING = "TRANSLATING"
+
+    # API 服务工作状态（api_service.py 使用，向后兼容；注意 STOPING 拼写保持原样）
+    class Status(StrEnum):
+        IDLE = "IDLE"
+        TRANSLATING = "TRANSLATING"
+        STOPING = "STOPING"
+
+    WORK_STATUS: "Base.Status" = None  # type: ignore[assignment]  # initialized at runtime by api_service.py
 
     # 翻译模式 (用户意图)
     class TranslationMode(StrEnum):
